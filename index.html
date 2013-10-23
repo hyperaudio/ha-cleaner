@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8" />
+	<title>Transcript demo</title>
+	<link rel="stylesheet" type="text/css" href="css/hyperaudio.transcript.css" />
+	<link rel="stylesheet" type="text/css" href="css/hyperaudio.player.css" />
+	<link href='http://fonts.googleapis.com/css?family=Varela+Round' rel='stylesheet' type='text/css'>
+<style>
+.transcript-choice {
+	position:absolute;
+	top:280px;
+	left:10px;
+}
+.transcript-choice a {
+	font-weight:bold;
+	cursor:pointer;
+}
+.transcript-choice a:hover {
+	text-decoration:underline;
+}
+span.code {
+	padding:0 4px;
+	border:2px #666 solid;
+	border-radius:8px;
+	background-color:#ccc;
+}
+
+
+</style>
+
+<script>
+// MB's cheap and cheerful code
+
+
+</script>
+
+</head>
+<body>
+
+<div id="wrapper">
+	<div id="source-video" class="transcript-video"></div>
+
+	<div style="display:none" id="target-video" class="stage-video"></div>
+
+	<div class="transcript-choice">
+		Select a transcript:
+		<a id="source-1">Internet Indians</a>
+		| <a id="source-2">Clapper Responds</a>
+		| <a id="source-3">SOTU 2010</a>
+	</div>
+
+	<div style="padding-left:500px; padding-top:250px">
+	<input id="mode" type="radio" name="mode" value="normal" checked>Normal
+	<input type="radio" name="mode" value="adjust">Adjust
+	<input id="tweak" type="range" value="0" min="-1" max="1" step="0.001" style="width:100%">
+	</div>
+
+	<!-- inline style override for width - yeah I know -- mb -->
+	<div id="source-transcript" class="transcript" style="width: 920px"><p>Select a transcript to begin.</p><p>You can then play the video and click/touch words to jump to that point in the video.</p><p>The transcript can be selected and then dragged to the right staging area. You will need to click/touch and hold for a second to activate the dragging operation.</p><p>Note to Matt: Adding text to this area is odd and has to all be one a single huge line otherwise all the spaces get included. I suspect that not all of the transcripts are going to be so clinical.<br />What is with the <span class="code">&lt;pre&gt;</span> usage?</p></div>
+
+</div>
+
+<script type="text/javascript" src="lib/popcorn-1.4.0.js"></script>
+<script type="text/javascript" src="js/popcorn.transcript.js"></script>
+<script type="text/javascript" src="js/hyperaudio.core.js"></script>
+<script type="text/javascript" src="js/hyperaudio.player.js"></script>
+<script type="text/javascript" src="js/hyperaudio.transcript.js"></script>
+<script type="text/javascript" src="js/hyperaudio.projector.js"></script>
+<script type="text/javascript">
+
+	hyperaudio.register('Player', Player);
+	hyperaudio.register('Transcript', Transcript);
+	hyperaudio.register('Projector', Projector);
+
+	var player = hyperaudio.Player({
+		target: "#source-video"
+	});
+
+	var projector = hyperaudio.Projector({
+		target: "#target-video"
+	});
+
+
+	var transcript = hyperaudio.Transcript({
+		target: "#source-transcript",
+		// src: "../node_modules/transcripts/ts-internetindians.htm",
+		// video: "http://hyperaud.io/video/internetindians.mp4",
+		player: player
+	});
+
+	document.querySelector('#source-1').addEventListener('click', function(e) {
+		e.preventDefault();
+		transcript.load({
+			src: "/transcripts/ts-internetindians.htm",
+			video: "http://hyperaud.io/video/internetindians.mp4"
+		});
+	});
+
+	document.querySelector('#source-2').addEventListener('click', function(e) {
+		e.preventDefault();
+		transcript.load({
+			src: "/transcripts/ts-clapper-responds.htm",
+			video: "http://hyperaud.io/video/clapper-responds.mp4"
+		});
+	});
+
+	document.querySelector('#source-3').addEventListener('click', function(e) {
+		e.preventDefault();
+		transcript.load({
+			src: "/transcripts/ts-sotu2010.htm",
+			video: "http://hyperaud.io/video/665003303001_2154491005001_012710-StateoftheUnion.mp4"
+		});
+	});
+
+</script>
+</body>
+</html>
