@@ -188,9 +188,10 @@ var hyperaudio = (function() {
 		event: {
 			ready: 'ha:ready',
 			load: 'ha:load',
+			save: 'ha:save',
 			error: 'ha:error'
 		},
-		core: {
+		_commonMethods: {
 			options: {
 				DEBUG: true,
 				entity: 'core'
@@ -206,7 +207,7 @@ var hyperaudio = (function() {
 			},
 			_error: function(msg) {
 				var data = {msg: this.options.entity + ' Error : ' + msg};
-				this._trigger(this.event.error, data);
+				this._trigger(hyperaudio.event.error, data);
 			},
 			_debug: function() {
 				var self = this;
@@ -220,12 +221,12 @@ var hyperaudio = (function() {
 		register: function(name, module) {
 			if(typeof name === 'string') {
 				if(typeof module === 'function') {
-					module.prototype = hyperaudio.extend({}, this.core, module.prototype);
+					module.prototype = hyperaudio.extend({}, this._commonMethods, module.prototype);
 					this[name] = function(options) {
 						return new module(options);
 					};
 				} else if(typeof module === 'object') {
-					module = hyperaudio.extend({}, this.core, module);
+					module = hyperaudio.extend({}, this._commonMethods, module);
 					this[name] = module;
 				}
 			}
@@ -235,6 +236,48 @@ var hyperaudio = (function() {
 				this[name] = utility;
 			}
 		},
+
+		// TMP - This fn is WIP and left in as started making code for JSONP and then put it on hold.
+		jsonp: function(url, scope, callback) {
+			//
+			var head = document.getElementsByTagName('head')[0];
+			var script = document.createElement('script');
+			script.type = 'text/javascript';
+
+			var jsonp_i = 0; // TMP - would be in scope of core code as a static.
+
+			// Need to make the callback run in the correct scope.
+			callback[jsonp_i++] = function(json) {
+				callback.call(scope, data);
+			};
+
+			script.src = url;
+
+		},
+
+		hasClass: function(e, c) {
+			if ( !e ) return false;
+
+			var re = new RegExp("(^|\\s)" + c + "(\\s|$)");
+			return re.test(e.className);
+		},
+		addClass: function(e, c) {
+			if ( this.hasClass(e, c) ) {
+				return;
+			}
+
+			var newclass = e.className.split(' ');
+			newclass.push(c);
+			e.className = newclass.join(' ');
+		},
+		removeClass: function (e, c) {
+			if ( !this.hasClass(e, c) ) {
+				return;
+			}
+
+			var re = new RegExp("(^|\\s)" + c + "(\\s|$)", 'g');
+			e.className = e.className.replace(re, ' ');
+		}
 
 	});
 

@@ -73,22 +73,20 @@ var Transcript = (function(document, hyperaudio) {
 
 			if(this.target) {
 				this.target.innerHTML = '';
-				var xhr = new XMLHttpRequest();
-				xhr.open('GET', this.options.src, true);
-				xhr.addEventListener('load', function(event) {
-					if(this.status === 200) {
+
+				xhr({
+					url: this.options.src,
+					complete: function(event) {
 						self.target.innerHTML = this.responseText;
 						self._trigger(hyperaudio.event.load, {msg: 'Loaded "' + self.options.src + '"'});
-					} else {
+						setVideo();
+					},
+					error: function(event) {
+						self.target.innerHTML = 'Problem with transcript URL.'; // TMP - This sort of things should not be in the lib code, but acting off an error event hander.
 						self._error(this.status + ' ' + this.statusText + ' : "' + self.options.src + '"');
+						setVideo();
 					}
-					setVideo();
-				}, false);
-				xhr.addEventListener('error', function(event) {
-					self._error(this.status + ' ' + this.statusText + ' : "' + self.options.src + '"');
-					setVideo();
-				}, false);
-				xhr.send();
+				});
 			}
 		},
 
@@ -158,15 +156,18 @@ var Transcript = (function(document, hyperaudio) {
 				// Destroy any existing WordSelect.
 				this.deselectorize();
 
-				this.textSelect = new WordSelect(opts.target, {
+				this.textSelect = new WordSelect({
+					el: opts.target,
 					onDragStart: function(e) {
-						// opts.stage.target.className += ' ' + opts.stage.options.dragdropClass;
-						var dragdrop = new DragDrop(null, opts.stage.target, {
+						hyperaudio.addClass(opts.stage.target, opts.stage.options.dragdropClass);
+						var dragdrop = new DragDrop({
+							dropArea: opts.stage.target,
 							init: false,
 							onDrop: function(el) {
 								self.textSelect.clearSelection();
 								this.destroy();
-								el.setAttribute(opts.stage.options.idAttr, self.options.video); // Pass the transcript ID
+								el.setAttribute(opts.stage.options.idAttr, opts.video); // Pass the transcript ID
+								el.setAttribute(opts.stage.options.unitAttr, opts.unit); // Pass the transcript Unit
 								opts.stage._dropped(el);
 							}
 						});
