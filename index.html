@@ -54,13 +54,13 @@ div#source-transcript.transcript {
 	<div id="source-video" class="transcript-video"></div>
 
 
-	<div class="transcript-choice demo-buttons">
-		Select a transcript:
-		<a id="source-1">Internet Indians</a>
-		| <a id="source-2">Clapper Responds</a>
-		| <a id="source-3">SOTU 2010</a>
-		| <a id="source-4">Broken URL</a>
-	</div>
+  <!-- <div class="transcript-choice demo-buttons">
+    Select a transcript:
+    <a id="source-1">Internet Indians</a>
+    | <a id="source-2">Clapper Responds</a>
+    | <a id="source-3">SOTU 2010</a>
+    | <a id="source-4">Broken URL</a>
+  </div> -->
 
 	<div class="ctrl-hldr">
 		<input id="mode" type="radio" name="mode" value="normal" checked>Normal
@@ -85,12 +85,12 @@ div#source-transcript.transcript {
 <script type="text/javascript" src="js/hyperaudio.player.js"></script>
 <script type="text/javascript" src="js/hyperaudio.transcript.js"></script>
 <script type="text/javascript" src="js/utility.xhr.js"></script>
+<script type="text/javascript" src="js/purl.js"></script>
 
 <!-- temp jQuery include for dev speed - MB -->
 <script src="http://code.jquery.com/jquery-2.0.3.js"></script>
 
 <script type="text/javascript">
-
 
 
 	hyperaudio.register('Player', Player);
@@ -108,38 +108,49 @@ div#source-transcript.transcript {
 		player: player
 	});
 
-	document.querySelector('#source-1').addEventListener('click', function(e) {
-		e.preventDefault();
-		transcript.load({
-			src: "/transcripts/ts-internetindians.htm",
-			video: "http://hyperaud.io/video/internetindians.mp4"
-		});
-	});
+  var transcriptID = purl(document.location.href).param('t');
+  
+  $.get('http://data.hyperaud.io/transcripts/' + transcriptID, function(t) {
+    console.log(t);
+    transcript.load({
+      src: "http://data.hyperaud.io/" + t.owner + "/" + t.meta.filename,
+      video: "http://data.hyperaud.io/" + t.media.owner + "/" + t.media.meta.filename
+    });
+  });
 
-	document.querySelector('#source-2').addEventListener('click', function(e) {
-		e.preventDefault();
-		transcript.load({
-			src: "/transcripts/ts-clapper-responds.htm",
-			video: "http://hyperaud.io/video/clapper-responds.mp4"
-		});
-	});
 
-	document.querySelector('#source-3').addEventListener('click', function(e) {
-		e.preventDefault();
-		transcript.load({
-			src: "/transcripts/ts-sotu2010.htm",
-			video: "http://hyperaud.io/video/665003303001_2154491005001_012710-StateoftheUnion.mp4"
-		});
-	});
-
-	document.querySelector('#source-4').addEventListener('click', function(e) {
-		e.preventDefault();
-		transcript.load({
-			src: "broken/transcript.url.htm",
-			video: "broken/video.url.mp4"
-		});
-	});
-
+	// document.querySelector('#source-1').addEventListener('click', function(e) {
+	//     e.preventDefault();
+	//     transcript.load({
+	//       src: "/transcripts/ts-internetindians.htm",
+	//       video: "http://hyperaud.io/video/internetindians.mp4"
+	//     });
+	//   });
+	// 
+	//   document.querySelector('#source-2').addEventListener('click', function(e) {
+	//     e.preventDefault();
+	//     transcript.load({
+	//       src: "/transcripts/ts-clapper-responds.htm",
+	//       video: "http://hyperaud.io/video/clapper-responds.mp4"
+	//     });
+	//   });
+	// 
+	//   document.querySelector('#source-3').addEventListener('click', function(e) {
+	//     e.preventDefault();
+	//     transcript.load({
+	//       src: "/transcripts/ts-sotu2010.htm",
+	//       video: "http://hyperaud.io/video/665003303001_2154491005001_012710-StateoftheUnion.mp4"
+	//     });
+	//   });
+	// 
+	//   document.querySelector('#source-4').addEventListener('click', function(e) {
+	//     e.preventDefault();
+	//     transcript.load({
+	//       src: "broken/transcript.url.htm",
+	//       video: "broken/video.url.mp4"
+	//     });
+	//   });
+	
 
 		/*MB's code adapted from prototype*/
 
