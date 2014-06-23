@@ -27,6 +27,12 @@ body {
 	line-height:1;
 	background-color:#eee;
 	color:#000;
+	-webkit-touch-callout: none;
+	-webkit-user-select: none;
+	-khtml-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
 }
 
 p {
@@ -51,7 +57,7 @@ p {
 .transcript-video {
 	position:absolute;
 	top:0;
-	left:0;
+	left:240px;
 }
 
 .stage-video {
@@ -71,13 +77,12 @@ p {
 
 .transcript {
 	position: absolute;
-	top: 300px;
+	top: 400px;
 	bottom: 0;
 	left: 0;
 	padding: 2em 20px;
 	line-height: 1.8em;
 	font-size: 1.2em;
-	width: 438px;
 	overflow: auto;
 	color: #444;
 	border-right: 2px solid #ccc;
@@ -172,7 +177,7 @@ p {
 
 .stage {
 	position: absolute;
-	top: 300px;
+	top: 400px;
 	bottom: 0;
 	right: 0;
 	padding: 10px;
@@ -254,6 +259,7 @@ p {
 	line-height: 34px;
 	font-size: 1.2em;
 	color: #fff;
+	z-index:1;
 }
 
 .stage .actions:after {
@@ -291,3 +297,46 @@ p {
 .draggable p {
 	margin-bottom:0;
 }
+
+.stage a {
+	display: inline-block;
+	position: relative;
+	z-index: 1;
+	cursor:pointer;
+
+	white-space: pre-wrap;
+	white-space: -moz-pre-wrap;
+	white-space: -pre-wrap;
+	white-space: -o-pre-wrap;
+	word-wrap: break-word;
+}
+
+.stage a:hover {
+	background: #ffc;
+	color: #a00;
+}
+
+.video-transition-servo {
+	position: absolute;
+	width: 100%;
+	height: 100%;
+	top: 0;
+	left: 0;
+}
+
+.title-effect-servo {
+	position: absolute;
+	width: 100%;
+	text-align: center;
+	padding: 20px;
+	bottom: 0;
+	font-size: 1.2em;
+	left: -9999px;
+	line-height: 140%;
+	-webkit-transition-property: -webkit-transform;
+	-moz-transition-property: -moz-transform;
+	-ms-transition-property: -ms-transform;
+	-o-transition-property: -o-transform;
+	transition-property: transform;
+}
+

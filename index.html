@@ -1,33 +1,104 @@
 <!DOCTYPE html>
 <html>
-<head lang="en">
-	<title>Hyperaudio Cleaner</title>
-	<meta charset="utf-8">
-	<meta content="IE=edge,chrome=1" http-equiv="X-UA-Compatible">
-	<meta name="viewport" content="width=device-width">
-	<link href="/assets/images/inserts/favicon.ico" rel="icon" type="image/x-icon" >
-	<style type="text/css">
-	body {
-		margin:0px;
-		padding:0px;
-		overflow:scroll-y;
-	}
-
-	.main {
-		overflow:hidden;
-		height: 100%;
-		height: calc(100% - 54px);
-		width:100%;
-		position:absolute;
-		top:54px;
-		left:0px;
-		right:0px;
-		bottom:0px;
-	}
-	</style>
+<head>
+	<meta charset="utf-8" />
+	<title>HyperTranscript demo</title>
+	<link rel="stylesheet" type="text/css" href="css/hyperaudio.transcript.css" />
+	<link rel="stylesheet" type="text/css" href="css/hyperaudio.player.css" />
+	<link href='http://fonts.googleapis.com/css?family=Varela+Round' rel='stylesheet' type='text/css'>
 </head>
 <body>
-	<iframe src="/commons/tools/header.html" height="100px" width="100%" frameborder="0" seamless scrolling="no"></iframe>
-	<iframe class="main" src="cleaner.html" height="100%" width="100%" frameborder="0" seamless></iframe>
+
+<div id="wrapper">
+	<div class="video-hldr">
+		<div id="source-video" class="transcript-video"></div>
+	</div>
+	<div class="ctrl-hldr" style="position: absolute;top:300px; width: 100%; padding:16px;">
+		<p style="padding-left:330px"><input style="font-size:16px;width:255px" id="selected-word" type="text" name="selected-word" ></p>
+		<p>-5s<input id="tweak-time" type="range" value="0" min="-5000" max="5000" step="100" style="width:860px; margin-left:10px">+5s</p>
+	</div>
+	<div class="transcript-pane">
+		<div id="source-transcript" class="transcript"></div>
+	</div>
+</div>
+
+<script type="text/javascript" src="js/hyperaudio.js"></script>
+
+<script type="text/javascript">
+
+	var ht = {
+
+		selectWordTime: 0,
+
+		init: function() {
+
+			player = HA.Player({
+				target: "#source-video",
+				gui: {
+					navigation: false,
+					fullscreen: false
+				}
+			});
+
+			transcript = HA.Transcript({
+				target: "#source-transcript",
+				//async: false,
+				media: {
+					transcript: "transcripts/ts-people-dont-sleep.html",
+					youtube: "http://www.youtube.com/watch?v=ZHatkfnBQBs"
+				},
+				player: player
+			});
+
+
+			var transcriptEl = document.getElementById("source-transcript");
+			
+			transcriptEl.addEventListener(HA.event.ready, setListeners, false);
+		}
+	}
+
+
+
+	function setListeners() {
+
+		var words = document.getElementsByTagName("a");
+		var selectedWord = document.getElementById("selected-word");
+		var tweakTime = document.getElementById("tweak-time");
+		var timeChange;
+
+		for (var i = 0; i < words.length; i++) {   
+			words[i].onclick = function() {
+				//console.dir(this.getAttribute("data-m"));
+				ht.selectWordTime = this.getAttribute("data-m");
+				selectedWord.value = this.innerHTML;//.replace(" ","");
+			};
+		}
+
+		selectedWord.oninput = function() {
+			var theWord = document.querySelectorAll("a[data-m='"+ht.selectWordTime+"']");
+			theWord[0].innerHTML = selectedWord.value;
+		};
+
+		tweakTime.oninput = function() {
+			timeChange = parseInt(this.value);
+			player.play((parseInt(ht.selectWordTime)+timeChange)/1000);
+		}
+
+		tweakTime.onkeyup = setWordTime;
+		tweakTime.onmouseup = setWordTime;
+
+		function setWordTime() {
+			var theWord = document.querySelectorAll("a[data-m='"+ht.selectWordTime+"']");
+			theWord[0].setAttribute("data-m",(parseInt(ht.selectWordTime)+timeChange));
+			tweakTime.value = 0;
+		}
+	}
+
+	window.onload = function(){
+		ht.init();
+	}
+</script>
+
+
 </body>
 </html>
