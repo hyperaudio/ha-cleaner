@@ -29,40 +29,125 @@
 <script type="text/javascript">
 
 $( document ).ready(function() {
-  	
-  	var ht = {
 
-		selectWordTime: 0,
+	var API = 'http://api.hyperaud.io/v1';
 
-		init: function() {
+	var mediaObject;
+	var mediaID = purl(window.top.document.location.href).param('m');
+	var transcriptID = purl(window.top.document.location.href).param('t');
+	var transcriptObject;
 
-			player = HA.Player({
-				target: "#source-video",
-				gui: {
-					navigation: false,
-					fullscreen: false
-				}
-			});
+	console.log(transcriptID);
+
+	/*if (transcriptID) {
+		$.get(API + '/transcripts/' + transcriptID, function(t) {
+
+			transcriptObject = t;
+ 			//$('#subtitles').text(t.content);
+ 			console.dir(t);
+
+ 			var transcriptSrc = API + "/transcripts/" + t.owner + "/" + t.type + "/" +;
+
+ 			console.log(transcriptSrc);
 
 			transcript = HA.Transcript({
 				target: "#source-transcript",
 				//async: false,
 				media: {
-					transcript: "transcripts/ts-tracy-murphy.html",
+					transcript: transcriptSrc,//"transcripts/ts-tracy-murphy.html",
 					youtube: "https://www.youtube.com/watch?v=2OziioHOCgQ"
 				},
 				player: player
 			});
+    	});
+  	}*/
 
-			var transcriptEl = document.getElementById("source-transcript");
-			
-			transcriptEl.addEventListener(HA.event.ready, setListeners, false);
+  	if (mediaID) {
+    	$.get(API + '/media/' + mediaID, function(m) {
+      		mediaObject = m;
+      		//console.log(m);
+      		// var media = "http://data.hyperaud.io/" + m.owner + "/" + m.meta.filename;
+      		//   $("#myVideo").append('<source src="' + media + '" type="video/mp4" />');
+      		//   $("#myVideo").append('<source src="' + media.replace('mp4', 'webm') + '" type="video/mp4" />');
+    	});
+  	}
 
-			//console.dir(transcript);
+ 
+  	var user;
+
+  	function whoami(callback) {
+    	$.ajax(API+'/whoami', {
+     		type: "GET",
+     		contentType: "application/json; charset=utf-8",
+     		success: function(whoami) {
+        		if (whoami.user) {
+          			// logged in
+          			//alert('logged in');
+          			user = whoami.user;
+
+          			var event = new CustomEvent("ga", {"detail":{"origin":"HA-Converter","type":"XHR","action":"User logged in (whoami)"}});
+          			document.dispatchEvent(event);
+
+        		} else {
+          			// not logged in
+          			//alert('NOT logged in');
+          			user = null;
+
+          			var event = new CustomEvent("ga", {"detail":{"origin":"HA-Converter","type":"XHR","action":"User NOT logged in (whoami)"}});
+          			document.dispatchEvent(event);
+        		}
+        		if (callback) callback();
+      		},
+      		xhrFields: {
+        		withCredentials: true
+      		},
+        	crossDomain: true 
+    	});
+  	}
+
+	/*----------------*/
+  	
+
+
+
+
+	var selectWordTime = 0;
+
+	var player = HA.Player({
+		target: "#source-video",
+		gui: {
+			navigation: false,
+			fullscreen: false
 		}
-	}
+	});
 
+	
+	var transcriptEl = document.getElementById("source-transcript");
+	
+	transcriptEl.addEventListener(HA.event.ready, setListeners, false);
 
+	//We should be able to do the below with one call to the API not two
+
+	if (transcriptID) {
+		$.get(API + '/transcripts/' + transcriptID, function(t) {
+
+			var mediaObject = {transcript: API + "/transcripts/"+transcriptID+"/html/"};
+
+			// this will handle youtube, m4v, webm etc
+			if(t.media && t.media.source) {
+
+				for(var type in t.media.source) {
+					mediaObject[type] = t.media.source[type].url;
+				}
+			}
+
+		  	transcript = HA.Transcript({
+				target: "#source-transcript",
+				media: mediaObject,
+				player: player
+			});
+		});
+  	}
 
 	function setListeners() {
 
@@ -79,36 +164,36 @@ $( document ).ready(function() {
 		for (var i = 0; i < words.length; i++) {   
 			words[i].onclick = function() {
 				//console.dir(this.getAttribute("data-m"));
-				ht.selectWordTime = this.getAttribute("data-m");
+				selectWordTime = this.getAttribute("data-m");
 				selectedWord.value = this.innerHTML;//.replace(" ","");
-				selectedWordTime.value = ht.selectWordTime;
+				selectedWordTime.value = selectWordTime;
 			}
 		}
 
 		selectedWord.oninput = function() {
-			var theWord = document.querySelectorAll("a[data-m='"+ht.selectWordTime+"']");
+			var theWord = document.querySelectorAll("a[data-m='"+selectWordTime+"']");
 			theWord[0].innerHTML = selectedWord.value;
 		}
 
 		selectedWordTime.oninput = function() {
-			var theWord = document.querySelectorAll("a[data-m='"+ht.selectWordTime+"']");
+			var theWord = document.querySelectorAll("a[data-m='"+selectWordTime+"']");
 			//console.log(ht.selectWordTime);
 			theWord[0].setAttribute("data-m",(selectedWordTime.value));
-			ht.selectWordTime = selectedWordTime.value;
+			selectWordTime = selectedWordTime.value;
 			//console.log(selectedWordTime.value);
 		}
 
 		selectedWordTime.onkeyup = function(e) {
     		if (e.keyCode == 13) {
-        		player.play(parseInt(ht.selectWordTime)/1000);
-        		console.log(ht.selectWordTime);
+        		player.play(parseInt(selectWordTime)/1000);
+        		console.log(selectWordTime);
         	}
     	}
 
 		tweakTime.oninput = function() {
 			timeChange = parseInt(this.value);
-			player.play((parseInt(ht.selectWordTime)+timeChange)/1000);
-			selectedWordTime.value = parseInt(ht.selectWordTime)+timeChange;
+			player.play((parseInt(selectWordTime)+timeChange)/1000);
+			selectedWordTime.value = parseInt(selectWordTime)+timeChange;
 		}
 
 		tweakTime.onkeyup = setWordTime;
@@ -116,13 +201,11 @@ $( document ).ready(function() {
 
 		function setWordTime() {
 			var theWord = document.querySelectorAll("a[data-m='"+ht.selectWordTime+"']");
-			ht.selectWordTime = parseInt(ht.selectWordTime)+timeChange;
-			theWord[0].setAttribute("data-m",ht.selectWordTime);
+			selectWordTime = parseInt(selectWordTime)+timeChange;
+			theWord[0].setAttribute("data-m",selectWordTime);
 			tweakTime.value = 0;
 		}
 	}
-
-	ht.init();
 });
 
 </script>
