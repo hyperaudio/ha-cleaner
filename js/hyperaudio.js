@@ -1,4 +1,4 @@
-/*! hyperaudio v0.3.12 ~ (c) 2012-2014 Hyperaudio Inc. <hello@hyperaud.io> (http://hyperaud.io) ~ Built: 16th January 2014 16:34:31 */
+/*! hyperaudio-lib v0.4.16 ~ (c) 2012-2014 Hyperaudio Inc. <hello@hyperaud.io> (http://hyperaud.io) http://hyperaud.io/licensing/ ~ Built: 3rd July 2014 19:41:38 */
 (function(global, document) {
 
   // Popcorn.js does not support archaic browsers
@@ -3964,12 +3964,18 @@ var hyperaudio = (function() {
       ready: 'ha:ready',
       load: 'ha:load',
       save: 'ha:save',
+      change: 'ha:change',
+      // login: 'ha:login', // No DOM element relating to a login. It is handled by the api.signin when the stage fails to authenticate.
       unauthenticated: 'ha:unauthenticated',
+      userplay: 'ha:userplay',
+      userpause: 'ha:userpause',
+      usercurrenttime: 'ha:usercurrenttime',
+      userplayword: 'ha:userplayword',
       error: 'ha:error'
     },
     _commonMethods: {
       options: {
-        DEBUG: true,
+        DEBUG: false,
         entity: 'core'
       },
       _trigger: function(eventType, eventData) {
@@ -3979,6 +3985,10 @@ var hyperaudio = (function() {
             bubbles: true,
             cancelable: true
           });
+        hyperaudio.gaEvent({
+          type: this.options.entity,
+          action: eventType + ' event: ' + (eventObject.msg ? eventObject.msg : '')
+        });
         this.target.dispatchEvent(event);
       },
       _error: function(msg) {
@@ -4015,7 +4025,35 @@ var hyperaudio = (function() {
 
     // http://stackoverflow.com/questions/1403888/get-url-parameter-with-javascript-or-jquery
     getURLParameter: function(name) {
-      return decodeURIComponent((new RegExp('[?|&]' + name + '=' + '([^&;]+?)(&|#|;|$)').exec(location.search)||[,""])[1].replace(/\+/g, '%20'))||null;
+      // return decodeURIComponent((new RegExp('[?|&]' + name + '=' + '([^&;]+?)(&|#|;|$)').exec(location.search)||[,""])[1].replace(/\+/g, '%20'))||null;
+      // Now looks at top window (frame).
+      return decodeURIComponent((new RegExp('[?|&]' + name + '=' + '([^&;]+?)(&|#|;|$)').exec(window.top.location.search)||[,""])[1].replace(/\+/g, '%20'))||null;
+    },
+
+    gaEvent: function(detail) {
+      // detail: {origin, type, action}
+
+      if(typeof detail !== 'object') {
+        if(typeof detail === 'string') {
+          detail = {
+            type: 'message',
+            action: detail
+          };
+        } else {
+          detail = {};
+        }
+      }
+
+      detail.origin = detail.origin ? detail.origin : 'Hyperaudio Lib';
+      detail.type = detail.type ? detail.type : 'no type';
+      detail.action = detail.action ? detail.action : 'no action';
+
+      var event = new CustomEvent("ga", {
+        detail: detail,
+        bubbles: true,
+        cancelable: true
+      });
+      document.dispatchEvent(event);
     },
 
     hasClass: function(e, c) {
@@ -4044,6 +4082,12 @@ var hyperaudio = (function() {
         this.removeClass(e, c);
       } else {
         this.addClass(e, c);
+      }
+    },
+    empty: function(el) {
+      // Empties the element... Possibly better than el.innerHTML = '';
+      while(el && el.firstChild) {
+        el.removeChild(el.firstChild);
       }
     }
 
@@ -4349,6 +4393,11 @@ var EditBlock = (function (document) {
       return;
     }
 
+    hyperaudio.gaEvent({
+      type: 'EDITBLOCK',
+      action: 'canceledit: Cancelled editing.'
+    });
+
     this.destroy();
   };
 
@@ -4406,6 +4455,11 @@ var EditBlock = (function (document) {
 
     this.stage.dropped(newBlock);
 
+    hyperaudio.gaEvent({
+      type: 'EDITBLOCK',
+      action: 'edit: Editted section.'
+    });
+
     this.destroy();
   };
 
@@ -4460,7 +4514,9 @@ var fadeFX = (function (window, document) {
     // if ( !fxInstance ) {
       var opt = {
         time: 2000,
-        color: '#000000',
+        background: '#000000', // fade
+        color: '#ffffff', // title
+        text: '',
         fadeOut: false,
         fadeIn: false,
         outFirst: true // not implemented
@@ -4481,9 +4537,13 @@ var fadeFX = (function (window, document) {
 
     this.servo = document.getElementById('fxHelper');
 
+    this.servo.querySelector('div').innerHTML = this.options.text ? this.options.text : '';
+
     this.servo.style[transition] = 'opacity 0ms';
     this.servo.style.left = '0px';
-    this.servo.style.backgroundColor = this.options.color;
+    this.servo.style.backgroundColor = this.options.background;
+    this.servo.style.color = this.options.color;
+
 
     if ( this.options.fadeOut ) {
       this.servo.style.opacity = '0';
@@ -4582,6 +4642,16 @@ var fadeFX = (function (window, document) {
 
 var SideMenu = (function (document, hyperaudio) {
 
+  var CLASS_ON_DEMAND = 'on-demand';
+  var CLASS_YOUR_ITEM = 'owned-by-user';
+  var CLASS_YOUR_MEDIA = 'user-media';
+  var CLASS_OTHER_MEDIA = 'other-media';
+
+  var CHANNEL_OTHER_TITLE = 'Other...';
+  var CHANNEL_OTHER_API = 'nochannel';
+
+  var CHANNEL_EMPTY_TEXT = 'empty';
+
   function SideMenu (options) {
     this.options = {
       el: '#sidemenu',
@@ -4618,73 +4688,301 @@ var SideMenu = (function (document, hyperaudio) {
     this.initMusic();
   }
 
+  SideMenu.prototype.makeMenuFolder = function(parent, title, channel, user) {
+    var li = document.createElement('li'),
+      div = document.createElement('div'),
+      ul = document.createElement('ul');
+    hyperaudio.addClass(li, 'folder');
+    if(channel) {
+      hyperaudio.addClass(li, CLASS_ON_DEMAND);
+      li.setAttribute('data-channel', channel);
+      if(user) {
+        li.setAttribute('data-user', '1');
+      }
+    }
+    div.innerHTML = title;
+    li.appendChild(div);
+    li.appendChild(ul);
+    parent.appendChild(li);
+    return ul;
+  };
+
+  SideMenu.prototype.makeMenuItem = function(title, id) {
+    var li = document.createElement('li');
+    if(id) {
+      li.setAttribute('data-id', id);
+    }
+    li.innerHTML = title;
+    return li;
+  };
+
   SideMenu.prototype.initTranscripts = function () {
+/*
     var self = this;
 
-    var mkdir = function(parent, title) {
-      var li = document.createElement('li'),
-        div = document.createElement('div'),
-        ul = document.createElement('ul');
-      hyperaudio.addClass(li, 'folder');
-      div.innerHTML = title;
-      li.appendChild(div);
-      li.appendChild(ul);
-      parent.appendChild(li);
-      return ul;
-    };
+    addTestFolders();
 
     hyperaudio.api.getUsername(function(success) {
 
       var username = '';
-      var filter = false;
 
       if(success) {
         username = this.username;
-        filter = !this.guest;
       }
 
-      hyperaudio.api.getTranscripts(function(success) {
-        if(success) {
-          var yourTrans, otherTrans, userTrans, elem, trans;
+      // hyperaudio.api.getTranscripts(function(success) {
 
-          if(username) {
-            yourTrans = mkdir(self.transcripts, 'Your Transcripts');
-          }
-          otherTrans = mkdir(self.transcripts, 'Other Transcripts');
+      hyperaudio.api.getTranscripts({
+        user: true,
+        channel: 'US Politics',
+        callback: function(json) {
 
-          // Nesting not supported ATM.
-          // userTrans = mkdir(self.transcripts, 'By User');
-          // mkdir(userTrans, 'Scooby');
-          // mkdir(userTrans, 'Mark');
+          if(json) {
+            var yourTrans, otherTrans, elem, trans;
 
-          for(var i = 0, l = this.transcripts.length; i < l; i++) {
-            trans = this.transcripts[i];
-            if(trans.type === 'html') {
-              elem = document.createElement('li');
-              elem.setAttribute('data-id', trans._id);
-              elem.innerHTML = trans.label;
-              // self.transcripts.appendChild(elem);
+            if(username) {
+              yourTrans = self.makeMenuFolder(self.transcripts, 'Your Media');
+            }
+            otherTrans = self.makeMenuFolder(self.transcripts, 'Media');
 
-              if(trans.owner === username) {
-                yourTrans.appendChild(elem);
-              } else {
-                otherTrans.appendChild(elem);
+            // addTestFolders();
+
+            for(var i = 0, l = json.length; i < l; i++) {
+              trans = json[i];
+              if(trans.type === 'html') {
+                elem = document.createElement('li');
+                elem.setAttribute('data-id', trans._id);
+                elem.innerHTML = trans.label;
+
+                if(trans.owner === username) {
+                  yourTrans.appendChild(elem);
+                } else {
+                  otherTrans.appendChild(elem);
+                }
               }
             }
-          }
 
-          self.transcripts._tap = new Tap({el: self.transcripts});
-          self.transcripts.addEventListener('tap', self.selectMedia.bind(self), false);
+            self.transcripts._tap = new Tap({el: self.transcripts});
+            self.transcripts.addEventListener('tap', self.selectMedia.bind(self), false);
+          }
         }
       });
     });
+*/
+
+
+
+
+
+    var self = this,
+      username = '',
+      getUsername,
+      getChannels, getUserChannels,
+      prepareChannels, prepareUserChannels,
+      selectMedia,
+      getTranscripts;
+
+    getUsername = function() {
+      hyperaudio.api.getUsername(function(success) {
+        if(success) {
+          username = this.username;
+          if(username) {
+            getUserChannels();
+          } else {
+            getChannels();
+          }
+        }
+      });
+    };
+
+    getUserChannels = function() {
+      hyperaudio.api.getChannels({
+        user: true,
+        callback: function(success) {
+          if(success) {
+            prepareUserChannels(success);
+          }
+        }
+      });
+    };
+
+    getChannels = function() {
+      hyperaudio.api.getChannels({
+        callback: function(success) {
+          if(success) {
+            prepareChannels(success);
+          }
+        }
+      });
+    };
+
+    prepareUserChannels = function(channels) {
+      var owner = self.makeMenuFolder(self.transcripts, 'Your Media');
+      hyperaudio.addClass(owner, CLASS_YOUR_MEDIA);
+      if(channels && channels.length) {
+        for(var i = 0, l = channels.length; i < l; i++) {
+          self.makeMenuFolder(owner, channels[i], channels[i], true);
+        }
+      }
+      self.makeMenuFolder(owner, CHANNEL_OTHER_TITLE, CHANNEL_OTHER_API, true);
+      getChannels();
+    };
+
+    prepareChannels = function(channels) {
+      var owner = self.makeMenuFolder(self.transcripts, 'Media');
+      hyperaudio.addClass(owner, CLASS_OTHER_MEDIA);
+      if(channels && channels.length) {
+        for(var i = 0, l = channels.length; i < l; i++) {
+          self.makeMenuFolder(owner, channels[i], channels[i], false);
+        }
+      }
+      self.makeMenuFolder(owner, CHANNEL_OTHER_TITLE, CHANNEL_OTHER_API, false);
+
+      self.transcripts._tap = new Tap({el: self.transcripts});
+      // self.transcripts.addEventListener('tap', self.selectMedia.bind(self), false);
+      self.transcripts.addEventListener('tap', selectMedia, false);
+    };
+
+    selectMedia = function (event) {
+      event.stopPropagation();  // just in case [Not sure this does anything with a tap event.]
+
+      var item = event.target;
+      var folder = self.toggleFolder(event);
+
+      if(folder) {
+        if(self.isOnDemand(folder)) {
+          // capture class now! Otherwise, multi clicks cause multi xhr.
+          hyperaudio.removeClass(folder, CLASS_ON_DEMAND);
+          getTranscripts(folder);
+        }
+        return;
+      }
+
+      if ( !item.getAttribute('data-id') || !self.mediaCallback ) {
+        return;
+      }
+
+      self.mediaCallback(item);
+    };
+
+    getTranscripts = function(folder) {
+      var channel = folder.getAttribute('data-channel');
+      var user = !!folder.getAttribute('data-user');
+      folder = folder.querySelector('ul');
+      hyperaudio.api.getTranscripts({
+        user: user,
+        channel: channel,
+        callback: function(transcripts) {
+          var trans, item;
+          if(transcripts) {
+            if(transcripts.length) {
+              for(var i = 0, l = transcripts.length; i < l; i++) {
+                trans = transcripts[i];
+                item = self.makeMenuItem(trans.label, trans._id);
+                if(username && trans.owner === username) {
+                  hyperaudio.addClass(item, CLASS_YOUR_ITEM);
+                }
+                folder.appendChild(item);
+              }
+            } else {
+              folder.appendChild(self.makeMenuItem(CHANNEL_EMPTY_TEXT));
+            }
+          } else {
+            // failed, so put the class back on to enable retry
+            hyperaudio.addClass(folder, CLASS_ON_DEMAND);
+          }
+        }
+      });
+    };
+
+    getUsername();
+
+    // *****************
+    // START - TEST CODE
+    // *****************
+    var addTestFolders = function() {
+
+      var testFolder =[], testChild = [];
+
+      // Make a folder
+      testFolder.push(self.makeMenuFolder(self.transcripts, 'Test Folder 1'));
+      testChild.push([]);
+
+      // Add some child items to the folder
+      testFolder[testFolder.length - 1].appendChild(self.makeMenuItem('Child 1 -> A', '1A'));
+      testFolder[testFolder.length - 1].appendChild(self.makeMenuItem('Child 1 -> B', '1B'));
+      testFolder[testFolder.length - 1].appendChild(self.makeMenuItem('Child 1 -> C', '1C'));
+
+      // Add some child folders to the folder
+      testChild[testChild.length - 1].push(self.makeMenuFolder(testFolder[testFolder.length - 1], 'Child Folder 1 -> 1'));
+      testChild[testChild.length - 1].push(self.makeMenuFolder(testFolder[testFolder.length - 1], 'Child Folder 1 -> 2'));
+      testChild[testChild.length - 1].push(self.makeMenuFolder(testFolder[testFolder.length - 1], 'Child Folder 1 -> 3'));
+
+      // Add some child items to the child folders
+      testChild[testChild.length - 1][0].appendChild(self.makeMenuItem('Child 1 -> 1 -> A', '11A'));
+      testChild[testChild.length - 1][0].appendChild(self.makeMenuItem('Child 1 -> 1 -> B', '11B'));
+      testChild[testChild.length - 1][0].appendChild(self.makeMenuItem('Child 1 -> 1 -> C', '11C'));
+
+      testChild[testChild.length - 1][1].appendChild(self.makeMenuItem('Child 1 -> 2 -> A', '12A'));
+      testChild[testChild.length - 1][1].appendChild(self.makeMenuItem('Child 1 -> 2 -> B', '12B'));
+      testChild[testChild.length - 1][1].appendChild(self.makeMenuItem('Child 1 -> 2 -> C', '12C'));
+
+      testChild[testChild.length - 1][2].appendChild(self.makeMenuItem('Child 1 -> 3 -> A', '13A'));
+      testChild[testChild.length - 1][2].appendChild(self.makeMenuItem('Child 1 -> 3 -> B', '13B'));
+      testChild[testChild.length - 1][2].appendChild(self.makeMenuItem('Child 1 -> 3 -> C', '13C'));
+
+
+      // Add a child folders to the child folder (3rd level)
+      var testThird = self.makeMenuFolder(testChild[testChild.length - 1][1], 'CF 1>2>1');
+      // Add some child items to the child folders (3rd level)
+      testThird.appendChild(self.makeMenuItem('C 1>2>1>A', '121A'));
+      testThird.appendChild(self.makeMenuItem('C 1>2>1>B', '121B'));
+      testThird.appendChild(self.makeMenuItem('C 1>2>1>C', '121C'));
+
+
+      // Make another folder
+      testFolder.push(self.makeMenuFolder(self.transcripts, 'Test Folder 2'));
+      testChild.push([]);
+
+      // Add some child items to the folder
+      testFolder[testFolder.length - 1].appendChild(self.makeMenuItem('Child 2 -> A', '2A'));
+      testFolder[testFolder.length - 1].appendChild(self.makeMenuItem('Child 2 -> B', '2B'));
+      testFolder[testFolder.length - 1].appendChild(self.makeMenuItem('Child 2 -> C', '2C'));
+
+      // Add some child folders to the folder
+      testChild[testChild.length - 1].push(self.makeMenuFolder(testFolder[testFolder.length - 1], 'Child Folder 2 -> 1'));
+      testChild[testChild.length - 1].push(self.makeMenuFolder(testFolder[testFolder.length - 1], 'Child Folder 2 -> 2'));
+      testChild[testChild.length - 1].push(self.makeMenuFolder(testFolder[testFolder.length - 1], 'Child Folder 2 -> 3'));
+
+      // Add some child items to the child folders
+      testChild[testChild.length - 1][0].appendChild(self.makeMenuItem('Child 2 -> 1 -> A', '21A'));
+      testChild[testChild.length - 1][0].appendChild(self.makeMenuItem('Child 2 -> 1 -> B', '21B'));
+      testChild[testChild.length - 1][0].appendChild(self.makeMenuItem('Child 2 -> 1 -> C', '21C'));
+
+      testChild[testChild.length - 1][1].appendChild(self.makeMenuItem('Child 2 -> 2 -> A', '22A'));
+      testChild[testChild.length - 1][1].appendChild(self.makeMenuItem('Child 2 -> 2 -> B', '22B'));
+      testChild[testChild.length - 1][1].appendChild(self.makeMenuItem('Child 2 -> 2 -> C', '22C'));
+
+      testChild[testChild.length - 1][2].appendChild(self.makeMenuItem('Child 2 -> 3 -> A', '23A'));
+      testChild[testChild.length - 1][2].appendChild(self.makeMenuItem('Child 2 -> 3 -> B', '23B'));
+      testChild[testChild.length - 1][2].appendChild(self.makeMenuItem('Child 2 -> 3 -> C', '23C'));
+    };
+    // ***************
+    // END - TEST CODE
+    // ***************
   };
 
   SideMenu.prototype.initMusic = function () {
-    var stage = this.options.stage;
+    var self = this,
+      stage = this.options.stage;
 
     function onDragStart (e) {
       hyperaudio.addClass(stage.target, 'dragdrop');
+
+      hyperaudio.gaEvent({
+        type: 'SIDEMENU',
+        action: 'bgmstartdrag: Began dragging BGM effect'
+      });
     }
 
     function onDrop (el) {
@@ -4695,22 +4993,81 @@ var SideMenu = (function (document, hyperaudio) {
 
       var title = el.innerHTML;
       hyperaudio.addClass(el, 'effect');
-      el.innerHTML = '<form><div>' + title + '</div><label>Delay: <span class="value">1</span>s</label><input type="range" value="1" min="0.5" max="5" step="0.1" onchange="this.parentNode.querySelector(\'span\').innerHTML = this.value"></form>';
-      stage.dropped(el, title);
+      el.setAttribute('data-effect', 'bgm');
+
+      var id = this.handle.getAttribute('data-id'),
+        mp3 = this.handle.getAttribute('data-mp3'),
+        mp4 = this.handle.getAttribute('data-mp4'),
+        ogg = this.handle.getAttribute('data-ogg');
+
+      if(id) el.setAttribute('data-id', id);
+      if(mp3) el.setAttribute('data-mp3', mp3);
+      if(mp4) el.setAttribute('data-mp4', mp4);
+      if(ogg) el.setAttribute('data-ogg', ogg);
+
+      var html = '<form><div><span class="icon-music">' + title + '</span></div>' +
+        '<label>Delay: <span class="value">0</span>s</label><input id="effect-delay" type="range" value="0" min="0" max="30" step="0.5" onchange="this.setAttribute(\'value\', this.value); this.previousSibling.querySelector(\'span\').innerHTML = this.value">' +
+        '<label>Start At: <span class="value">0</span>s</label><input id="effect-start" type="range" value="0" min="0" max="30" step="0.5" onchange="this.setAttribute(\'value\', this.value); this.previousSibling.querySelector(\'span\').innerHTML = this.value">' +
+        '<label>Duration: <span class="value">60</span>s</label><input id="effect-duration" type="range" value="60" min="0" max="120" step="0.5" onchange="this.setAttribute(\'value\', this.value); this.previousSibling.querySelector(\'span\').innerHTML = this.value">' +
+        '<label>Volume: <span class="value">80</span>%</label><input id="effect-volume" type="range" value="80" min="10" max="100" step="5" onchange="this.setAttribute(\'value\', this.value); this.previousSibling.querySelector(\'span\').innerHTML = this.value">' +
+        '</form>';
+      el.innerHTML = html;
+      stage.dropped(el, '<span class="icon-music">' + title + '</span>');
+
+      hyperaudio.gaEvent({
+        type: 'SIDEMENU',
+        action: 'bgmdrop: Dropped BGM effect on to stage'
+      });
     }
 
     if(stage.target) {
       // add drag and drop to BGM
+/*
       var items = document.querySelectorAll('#panel-bgm li');
       for (var i = items.length-1; i >= 0; i-- ) {
-        items[i]._dragInstance = new DragDrop({
-          handle: items[i],
-          dropArea: stage.target,
-          draggableClass: 'draggableEffect',
-          onDragStart: onDragStart,
-          onDrop: onDrop
-        });
+        if ( !this.isFolder(items[i]) ) {
+          items[i]._dragInstance = new DragDrop({
+            handle: items[i],
+            dropArea: stage.target,
+            draggableClass: 'draggableEffect',
+            onDragStart: onDragStart,
+            onDrop: onDrop
+          });
+        }
       }
+      self.music._tap = new Tap({el: self.music});
+      self.music.addEventListener('tap', self.toggleFolder.bind(self), false);
+*/
+
+      hyperaudio.api.getBGM(function(success) {
+        if(success) {
+          var elem, bgms;
+
+          for(var i = 0, l = this.bgm.length; i < l; i++) {
+            bgms = this.bgm[i];
+            if(bgms.type === 'audio') {
+              elem = document.createElement('li');
+              elem.setAttribute('data-id', bgms._id);
+              if(bgms.source.mp3) elem.setAttribute('data-mp3', bgms.source.mp3.url);
+              if(bgms.source.mp4) elem.setAttribute('data-mp4', bgms.source.mp4.url);
+              if(bgms.source.ogg) elem.setAttribute('data-ogg', bgms.source.ogg.url);
+              elem.innerHTML = bgms.label;
+              elem._dragInstance = new DragDrop({
+                handle: elem,
+                html: '<span class="icon-music">' + bgms.label + '</span>',
+                dropArea: stage.target,
+                draggableClass: 'draggableEffect',
+                onDragStart: onDragStart,
+                onDrop: onDrop
+              });
+              self.music.appendChild(elem);
+            }
+          }
+
+          self.music._tap = new Tap({el: self.music});
+          self.music.addEventListener('tap', self.toggleFolder.bind(self), false);
+        }
+      });
     }
   };
 
@@ -4719,11 +5076,20 @@ var SideMenu = (function (document, hyperaudio) {
   };
 
   SideMenu.prototype.toggleMenu = function () {
+    var state;
+
     if ( this.opened ) {
       this.close();
+      state = 'Closed';
     } else {
       this.open();
+      state = 'Opened';
     }
+
+    hyperaudio.gaEvent({
+      type: 'SIDEMENU',
+      action: 'togglemenu: ' + state
+    });
   };
 
   SideMenu.prototype.open = function () {
@@ -4755,27 +5121,75 @@ var SideMenu = (function (document, hyperaudio) {
     hyperaudio.removeClass(current, 'selected');
     incoming = document.querySelector('#' + panelID);
     hyperaudio.addClass(incoming, 'selected');
+
+    var name = e.currentTarget.querySelector('span').innerHTML;
+    hyperaudio.gaEvent({
+      type: 'SIDEMENU',
+      action: 'selectpanel: Switched tab -> ' + name
+    });
   };
 
+  // OBSOLETE METHOD
   SideMenu.prototype.selectMedia = function (e) {
-    e.stopPropagation();  // just in case
+    e.stopPropagation();  // just in case [Not sure this does anything with a tap event.]
 
-    var starter = e.target;
+    var item = e.target;
 
-    if ( hyperaudio.hasClass(e.target.parentNode, 'folder') ) {
-      starter = e.target.parentNode;
-    }
-
-    if ( hyperaudio.hasClass(starter, 'folder') ) {
-      hyperaudio.toggleClass(starter, 'open');
+    if(this.toggleFolder(e)) {
+      if(this.isOnDemand(e)) {
+        // capture class now!
+      }
       return;
     }
 
-    if ( !starter.getAttribute('data-id') || !this.mediaCallback ) {
+    if ( !item.getAttribute('data-id') || !this.mediaCallback ) {
       return;
     }
 
-    this.mediaCallback(starter);
+    this.mediaCallback(item);
+  };
+
+  SideMenu.prototype.isOnDemand = function (target) {
+    // Copes with clicks on Folder div text and the li
+
+    if ( hyperaudio.hasClass(target.parentNode, CLASS_ON_DEMAND) ) {
+      target = target.parentNode;
+    }
+
+    if ( hyperaudio.hasClass(target, CLASS_ON_DEMAND) ) {
+      return target;
+    }
+    return false;
+  };
+
+  SideMenu.prototype.isFolder = function (target) {
+    // Copes with clicks on Folder div text and the li
+
+    if ( hyperaudio.hasClass(target.parentNode, 'folder') ) {
+      target = target.parentNode;
+    }
+
+    if ( hyperaudio.hasClass(target, 'folder') ) {
+      return target;
+    }
+    return false;
+  };
+
+  SideMenu.prototype.toggleFolder = function (e) {
+
+    var folder = this.isFolder(e.target);
+    if(folder) {
+      hyperaudio.toggleClass(folder, 'open');
+
+      var name = folder.querySelector('div').innerHTML;
+      hyperaudio.gaEvent({
+        type: 'SIDEMENU',
+        action: 'togglefolder: ' + (hyperaudio.hasClass(folder, 'open') ? 'Opened' : 'Closed') + ' -> ' + name
+      });
+
+      return folder;
+    }
+    return false;
   };
 
   return SideMenu;
@@ -5123,8 +5537,9 @@ var WordSelect = (function (window, document, hyperaudio) {
 
     this.currentWord = target;
 
-    hyperaudio.removeClass(this.element.querySelector('.first'), 'first');
-    hyperaudio.removeClass(this.element.querySelector('.last'), 'last');
+    // WIP - Commented out, since operation conflicts with zero grab time
+    // hyperaudio.removeClass(this.element.querySelector('.first'), 'first');
+    // hyperaudio.removeClass(this.element.querySelector('.last'), 'last');
 
     if ( this.words[this.startPosition] === target ) {
       tmp = this.startPosition;
@@ -5217,8 +5632,14 @@ var WordSelect = (function (window, document, hyperaudio) {
     var start = Math.min(this.startPosition, this.endPosition),
       end = Math.max(this.startPosition, this.endPosition);
 
-    hyperaudio.addClass(this.words[start], 'first');
-    hyperaudio.addClass(this.words[end], 'last');
+    // WIP - Commented out, since operation conflicts with zero grab time
+    // hyperaudio.addClass(this.words[start], 'first');
+    // hyperaudio.addClass(this.words[end], 'last');
+
+
+    if ( this.options.onSelection ) {
+      this.options.onSelection.call(this);
+    }
   };
 
   WordSelect.prototype.clearSelection = function () {
@@ -5226,8 +5647,9 @@ var WordSelect = (function (window, document, hyperaudio) {
     this.startPosition = null;
     this.endPosition = null;
 
-    hyperaudio.removeClass(this.element.querySelector('.first'), 'first');
-    hyperaudio.removeClass(this.element.querySelector('.last'), 'last');
+    // WIP - Commented out, since operation conflicts with zero grab time
+    // hyperaudio.removeClass(this.element.querySelector('.first'), 'first');
+    // hyperaudio.removeClass(this.element.querySelector('.last'), 'last');
 
     if ( this.options.touch ) {
       this.element.removeEventListener('touchmove', this, false);
@@ -5242,6 +5664,10 @@ var WordSelect = (function (window, document, hyperaudio) {
     var selected = this.element.querySelectorAll('.selected');
     for ( var i = 0, l = selected.length; i < l; i++ ) {
       hyperaudio.removeClass(selected[i], 'selected');
+    }
+
+    if ( this.options.onClear ) {
+      this.options.onClear.call(this);
     }
   };
 
@@ -5373,12 +5799,23 @@ var api = (function(hyperaudio) {
   return {
     init: function(options) {
       this.options = hyperaudio.extend({
-        api: 'http://api.hyperaud.io/v1/',
+        protocol: 'http://',
+        org: '', // The organisations namespace / sub-domain. EG. 'chattanooga.'
+        api: 'api.hyperaud.io/v1/',
+        // Command syntax
         transcripts: 'transcripts/',
+        transcripts_filter: '?type=html',
         mixes: 'mixes/',
+        channels: 'channels/',
         signin: 'login/',
-        whoami: 'whoami/'
+        whoami: 'whoami/',
+        // Specific user (bgm) for music
+        bgm: 'bgm/media/'
       }, options);
+
+      // The base url of the API
+      this.url = null;
+      this._updateInternals();
 
       // API State
       this.error = false;
@@ -5392,6 +5829,26 @@ var api = (function(hyperaudio) {
       this.transcript = null;
       this.mixes = null;
       this.mix = null;
+      this.bgm = null;
+
+      this.channels = null;
+    },
+    option: function(options, value) {
+      if(typeof options === 'string') { // Enable option to be set/get by name.
+        if(typeof value !== 'undefined') {
+          this.options[options] = value;
+        } else {
+          return this.options[options];
+        }
+      } else if(typeof options === 'object') { // Enable options to be set/get by object.
+        hyperaudio.extend(this.options, options);
+      } else {
+        return hyperaudio.extend({}, this.options); // Return a copy of the options object.
+      }
+      this._updateInternals();
+    },
+    _updateInternals: function() {
+      this.url = this.options.protocol + this.options.org + this.options.api;
     },
     callback: function(callback, success) {
       if(typeof callback === 'function') {
@@ -5402,7 +5859,7 @@ var api = (function(hyperaudio) {
       var self = this;
       // auth = {username,password}
       xhr({
-        url: this.options.api + this.options.signin,
+        url: this.url + this.options.signin,
         type: 'POST',
         data: JSON.stringify(auth),
         complete: function(event) {
@@ -5410,6 +5867,12 @@ var api = (function(hyperaudio) {
           self.guest = !json.user;
           if(!self.guest) {
             self.username = json.user;
+
+            hyperaudio.gaEvent({
+              type: 'API',
+              action: 'login: User signed in'
+            });
+
             self.callback(callback, true);
           } else {
             self.username = '';
@@ -5433,7 +5896,7 @@ var api = (function(hyperaudio) {
         }, 0);
       } else {
         xhr({
-          url: this.options.api + this.options.whoami,
+          url: this.url + this.options.whoami,
           complete: function(event) {
             var json = JSON.parse(this.responseText);
             self.guest = !json.user;
@@ -5451,7 +5914,108 @@ var api = (function(hyperaudio) {
         });
       }
     },
-    getTranscripts: function(callback, force) {
+    getChannels: function(options) {
+      var self = this,
+        getUsername, getUrl, getChannels;
+
+      options = hyperaudio.extend({
+        user: false, // When true, the api returns the current user's transcripts.
+        callback: null
+      }, options);
+
+      getUsername = function() {
+        self.getUsername(function(success) {
+          if(success && !self.guest) {
+            getChannels();
+          } else {
+            self.callback(options.callback, false);
+          }
+        });
+      };
+
+      getUrl = function() {
+        var url = self.url;
+        if(options.user) {
+          url += self.username + '/';
+        }
+        url += self.options.transcripts + self.options.channels;
+        return url;
+      };
+
+      getChannels = function() {
+        xhr({
+          url: getUrl(),
+          complete: function(event) {
+            var json = JSON.parse(this.responseText);
+            self.callback(options.callback, json);
+          },
+          error: function(event) {
+            self.error = true;
+            self.callback(options.callback, false);
+          }
+        });
+      };
+
+      if(options.user) {
+        getUsername();
+      } else {
+        getChannels();
+      }
+    },
+    getTranscripts: function(options) {
+      var self = this,
+        getUsername, getUrl, getTranscripts;
+
+      options = hyperaudio.extend({
+        user: false, // When true, the api returns the current user's transcripts.
+        channel: '', // The channel name. Empty string disables feature. See 'nochannel' for media without any channel.
+        callback: null
+      }, options);
+
+      getUsername = function() {
+        self.getUsername(function(success) {
+          if(success && !self.guest) {
+            getTranscripts();
+          } else {
+            self.callback(options.callback, false);
+          }
+        });
+      };
+
+      getUrl = function() {
+        var url = self.url;
+        if(options.user) {
+          url += self.username + '/';
+        }
+        url += self.options.transcripts;
+        if(options.channel) {
+          url += self.options.channels + options.channel;
+        }
+        url += self.options.transcripts_filter;
+        return url;
+      };
+
+      getTranscripts = function() {
+        xhr({
+          url: getUrl(),
+          complete: function(event) {
+            var json = JSON.parse(this.responseText);
+            self.callback(options.callback, json);
+          },
+          error: function(event) {
+            self.error = true;
+            self.callback(options.callback, false);
+          }
+        });
+      };
+
+      if(options.user) {
+        getUsername();
+      } else {
+        getTranscripts();
+      }
+    },
+    getTranscriptsOLD: function(callback, force) {
       var self = this;
       if(!force && this.transcripts) {
         setTimeout(function() {
@@ -5460,8 +6024,8 @@ var api = (function(hyperaudio) {
       } else {
         xhr({
           // In future may want a version that returns only your own transcripts.
-          // url: self.options.api + (self.guest ? '' : self.username + '/') + self.options.transcripts,
-          url: this.options.api + this.options.transcripts,
+          // url: self.url + (self.guest ? '' : self.username + '/') + self.options.transcripts,
+          url: this.url + this.options.transcripts,
           complete: function(event) {
             var json = JSON.parse(this.responseText);
             self.transcripts = json;
@@ -5485,8 +6049,8 @@ var api = (function(hyperaudio) {
         this.getUsername(function(success) {
           if(success && id) {
             xhr({
-              // url: self.options.api + (self.guest ? '' : self.username + '/') + self.options.transcripts + id,
-              url: self.options.api + self.options.transcripts + id,
+              // url: self.url + (self.guest ? '' : self.username + '/') + self.options.transcripts + id,
+              url: self.url + self.options.transcripts + id,
               complete: function(event) {
                 var json = JSON.parse(this.responseText);
                 self.transcript = json;
@@ -5515,7 +6079,7 @@ var api = (function(hyperaudio) {
         this.getUsername(function(success) {
           if(success) {
             xhr({
-              url: self.options.api + (self.guest ? '' : self.username + '/') + self.options.mixes,
+              url: self.url + (self.guest ? '' : self.username + '/') + self.options.mixes,
               complete: function(event) {
                 var json = JSON.parse(this.responseText);
                 self.mixes = json;
@@ -5544,7 +6108,7 @@ var api = (function(hyperaudio) {
         this.getUsername(function(success) {
           if(success && id) {
             xhr({
-              url: this.options.api + (this.guest ? '' : this.username + '/') + this.options.mixes + id,
+              url: this.url + (this.guest ? '' : this.username + '/') + this.options.mixes + id,
               complete: function(event) {
                 var json = JSON.parse(this.responseText);
                 self.mix = json;
@@ -5588,7 +6152,7 @@ var api = (function(hyperaudio) {
             }
 
             xhr({
-              url: self.options.api + self.username + '/' + self.options.mixes + id,
+              url: self.url + self.username + '/' + self.options.mixes + id,
               type: type,
               data: JSON.stringify(mix),
               complete: function(event) {
@@ -5617,6 +6181,308 @@ var api = (function(hyperaudio) {
           self.callback(callback, false);
         }, 0);
       }
+    },
+    getBGM: function(callback, force) {
+      var self = this;
+      if(!force && this.bgm) {
+        setTimeout(function() {
+          self.callback(callback, true);
+        }, 0);
+      } else {
+        xhr({
+          url: this.url + this.options.bgm,
+          complete: function(event) {
+            var json = JSON.parse(this.responseText);
+            self.bgm = json;
+            self.callback(callback, true);
+          },
+          error: function(event) {
+            self.error = true;
+            self.callback(callback, false);
+          }
+        });
+      }
+    }
+  };
+
+}(hyperaudio));
+
+
+/* Clipboard
+ *
+ */
+
+var Clipboard = (function(hyperaudio) {
+
+  // Following the method used by Trello
+  // http://stackoverflow.com/questions/17527870/how-does-trello-access-the-users-clipboard
+
+  var DEBUG = false;
+
+  return {
+    init: function(options) {
+      var self = this;
+
+      this.options = hyperaudio.extend({
+        target: 'body',
+        id_container: 'clipboard-container',
+        id_clipboard: 'clipboard'
+      }, options);
+
+      // Properties
+      this.value = '';
+      this.target = typeof this.options.target === 'string' ? document.querySelector(this.options.target) : this.options.target;
+
+      if(this.target) {
+        this.container = document.createElement('div');
+        this.container.setAttribute('id', this.options.id_container);
+        this.container.style.display = 'none';
+        this.target.appendChild(this.container);
+      }
+
+      // Handlers for top frame
+      window.top.document.documentElement.addEventListener('keydown', function(event) {
+        self.onKeyDown(event);
+      }, false);
+      window.top.document.documentElement.addEventListener('keyup', function(event) {
+        self.onKeyUp(event);
+      }, false);
+
+      // Handlers for this window
+      document.documentElement.addEventListener('keydown', function(event) {
+        self.onKeyDown(event);
+      }, false);
+      document.documentElement.addEventListener('keyup', function(event) {
+        self.onKeyUp(event);
+      }, false);
+
+    },
+    copy: function(value) {
+      this.value = value;
+    },
+    clear: function() {
+      this.value = '';
+    },
+    onKeyDown: function(event) {
+
+      if(DEBUG) console.log('[onKeyDown] : Key pressed');
+
+      if(!this.value || !(event.ctrlKey || event.metaKey)) {
+        if(DEBUG) console.log('[onKeyDown] : Exit | value = "' + this.value + '"');
+        return;
+      }
+
+      // Used the activeElement code from jPlayer.
+
+      var pageFocus = document.activeElement;
+      var keyIgnoreElementNames = "A INPUT TEXTAREA SELECT BUTTON";
+      var ignoreKey = false;
+
+      if(typeof pageFocus !== 'undefined') {
+        if(pageFocus !== null && pageFocus.nodeName.toUpperCase() !== "BODY") {
+          ignoreKey = true;
+          if(DEBUG) console.log('[onKeyDown] : Exit | pageFocus = %o' + pageFocus);
+        }
+      } else {
+        // Fallback for no document.activeElement support.
+        hyperaudio.each( keyIgnoreElementNames.split(/\s+/g), function(i, name) {
+          // The strings should already be uppercase.
+          if(event.target.nodeName.toUpperCase() === name.toUpperCase()) {
+            ignoreKey = true;
+            if(DEBUG) console.log('[onKeyDown] : Exit | nodeName = ' + name);
+            return false; // exit each.
+          }
+        });
+      }
+
+      if(ignoreKey) {
+        return;
+      }
+
+      if(DEBUG) console.log('[onKeyDown] : Textarea prepared for copy | value = "' + this.value + '"');
+
+      // If we get this far, prepare the textarea ready for the copy.
+
+      hyperaudio.empty(this.container);
+      this.container.style.display = 'block';
+
+      this.clipboard = document.createElement('textarea');
+      this.clipboard.setAttribute('id', this.options.id_clipboard);
+      this.clipboard.value = this.value;
+      this.container.appendChild(this.clipboard);
+      this.clipboard.focus();
+      this.clipboard.select();
+    },
+    onKeyUp: function(event) {
+      if(DEBUG) console.log('[onKeyUp] : Key released');
+      if(event.target === this.clipboard) {
+        hyperaudio.empty(this.container);
+        this.container.style.display = 'none';
+      }
+    }
+  };
+
+}(hyperaudio));
+
+
+/* Address
+ *
+ */
+
+var Address = (function(hyperaudio) {
+
+  // Refs:
+  // http://diveintohtml5.info/history.html
+  // http://stackoverflow.com/questions/824349/modify-the-url-without-reloading-the-page
+
+  var DEBUG = true;
+
+  return {
+    init: function(options) {
+      var self = this;
+
+      this.options = hyperaudio.extend({
+        title: 'Hyperaudio Pad'
+      }, options);
+
+      // Properties
+      this.enabled = false;
+      this.status = {
+        iframe: false,
+        remote: false,
+        support: false
+      };
+
+      // See if security allowed via same domain policy.
+      try {
+        window.top.document.createElement('div');
+
+        // See if we are in an iframe
+        if(window.top.document !== document) {
+          this.status.iframe = true;
+        }
+
+      } catch(error) {
+        this.status.iframe = true;
+        this.status.remote = true;
+      }
+
+      // Pick which window to use.
+      if(this.status.remote || !this.status.iframe) {
+        this.win = window;
+      } else {
+        this.win = window.top;
+      }
+
+      if(this.win.history && this.win.history.replaceState) {
+        this.status.support = true;
+      }
+
+      if(DEBUG) console.log('[History|init] status: { iframe: ' + this.status.iframe + ', remote: ' + this.status.remote + ', support: ' + this.status.support + ' }');
+
+      this.enable();
+    },
+    enable: function() {
+      if(this.status.support) {
+        this.enabled = true;
+      }
+      return this.enabled;
+    },
+    disable: function() {
+      this.enabled = false;
+    },
+    getUrlDetail: function() {
+
+      var url = this.win.document.location.href;
+      var base_url = url;
+      var param_index = url.indexOf('?');
+      var param_url = '';
+      var hash_index = url.indexOf('#');
+      var hash_url = '';
+
+      // Do we have any parameters
+      if(param_index >= 0) {
+        base_url = url.slice(0, param_index);
+        // Do we have any hash chars
+        if(hash_index >= 0) {
+          param_url = url.slice(param_index + 1, hash_index);
+          hash_url = url.slice(hash_index + 1);
+        } else {
+          param_url = url.slice(param_index + 1);
+        }
+      } else {
+        // Do we have any hash chars
+        if(hash_index >= 0) {
+          base_url = url.slice(0, hash_index);
+          hash_url = url.slice(hash_index + 1);
+        }
+      }
+
+      var value_pair = param_url.split('&');
+      var pair;
+      var param = {};
+
+      for(var i = 0, iLen = value_pair.length; i < iLen; i++) {
+        pair = value_pair[i].split('=');
+        if(pair.length === 2) {
+          param[pair[0]] = pair[1]; // May need to URL decode here
+        }
+      }
+
+      return {
+        base: base_url,
+        param: param,
+        hash: hash_url
+      };
+    },
+    buildUrl: function(detail) {
+      var first = true;
+      var href = detail.base;
+      for(var name in detail.param) {
+        if(detail.param.hasOwnProperty(name)) {
+          if(first) {
+            first = false;
+            href += '?';
+          } else {
+            href += '&';
+          }
+          href += name + '=' + detail.param[name];
+        }
+      }
+      if(detail.hash) {
+        href += '#' + detail.hash;
+      }
+      if(DEBUG) console.log('[History|buildUrl] href = "' + href + '"');
+      return href;
+    },
+    setParam: function(name, value) {
+      // The value should be a string. An undefined will remove the parameter.
+      if(this.enabled) {
+        var detail = this.getUrlDetail();
+        var save = false;
+        if(typeof value === 'string') {
+          if(detail.param[name] !== value) {
+            detail.param[name] = value;
+            save = true;
+            if(DEBUG) console.log('[History|setParam] NEW VALUE | "' + name + '" = "' + value + '"');
+          }
+        } else {
+          if(typeof detail.param[name] !== 'undefined') {
+            delete detail.param[name];
+            save = true;
+            if(DEBUG) console.log('[History|setParam] DELETE VALUE | "' + name + '" = "' + value + '"');
+          }
+        }
+        if(save) {
+          this.win.history.replaceState(null, this.options.title, this.buildUrl(detail));
+        }
+      }
+    },
+    getParam: function(name) {
+      if(this.enabled) {
+        var detail = this.getUrlDetail();
+        return detail.param[name];
+      }
     }
   };
 
@@ -5637,27 +6503,30 @@ var Music = (function(window, document, hyperaudio, Popcorn) {
 
       target: '#music-player', // The selector of element where the audio is generated
 
-      start: 0,
-      duration: 6,
-      volume: 1,
-      fadeInDuration: 2,
-      fadeOutDuration: 2,
-
       media: {
         mp3: '', // The URL of the mp3 audio.
         mp4: '', // The URL of the mp4 audio.
-        ogg:'' // The URL of the ogg audio.
+        ogg: '' // The URL of the ogg audio.
       },
 
       // Types valid in an audio element
       mediaType: {
         mp3: 'audio/mpeg', // The mp3 mime type.
         mp4: 'audio/mp4', // The mp4 mime type.
-        ogg:'audio/ogg' // The ogg mime type.
+        ogg: 'audio/ogg' // The ogg mime type.
       },
 
       async: true // When true, some operations are delayed by a timeout.
     }, options);
+
+    this.effect = {
+      start: 0,
+      duration: 6,
+      volume: 1,
+      fadeInDuration: 2,
+      fadeOutDuration: 2,
+      media: {}
+    };
 
     // Properties
     this.target = typeof this.options.target === 'string' ? document.querySelector(this.options.target) : this.options.target;
@@ -5685,7 +6554,7 @@ var Music = (function(window, document, hyperaudio, Popcorn) {
 
         this.audioElem = document.createElement('audio');
 
-        this.audioElem.controls = true; // TMP during dev.
+        // this.audioElem.controls = true; // TMP during dev.
 
         // Add listeners to the audio element
         this.audioElem.addEventListener('progress', function(e) {
@@ -5756,11 +6625,11 @@ var Music = (function(window, document, hyperaudio, Popcorn) {
           // Setup to work with mp3, mp4 and ogg property names. See options.
           hyperaudio.each(this.options.media, function(format, url) {
             // Only create known formats, so we can add other info to the media object.
-            if(self.options.mediaType[format]) {
+            if(self.options.mediaType[format] && url) {
               var source = document.createElement('source');
               source.setAttribute('type', self.options.mediaType[format]);
               source.setAttribute('src', url);
-              self.solution.html.appendChild(source);
+              self.audioElem.appendChild(source);
             }
           });
 
@@ -5837,19 +6706,19 @@ var Music = (function(window, document, hyperaudio, Popcorn) {
 
       if(!this.paused) {
 
-        var end = this.options.start + this.options.duration;
+        var end = this.effect.start + this.effect.duration;
 
         // The fade in/out code is WIP
 
         // Fade In TimeZone
         var fadeIn = {
-          start: this.options.start,
-          end: this.options.start + this.options.fadeInDuration
+          start: this.effect.start,
+          end: this.effect.start + this.effect.fadeInDuration
         };
 
         // Fade Out TimeZone
         var fadeOut = {
-          start: end - this.options.fadeOutDuration,
+          start: end - this.effect.fadeOutDuration,
           end: end
         };
 
@@ -5857,6 +6726,12 @@ var Music = (function(window, document, hyperaudio, Popcorn) {
           this.pause();
         }
       }
+    },
+    bgmFX: function(effect) {
+      hyperaudio.extend(this.effect, effect);
+      this.load(this.effect.media);
+      this.audioElem.volume = this.effect.volume;
+      this.play(this.effect.start);
     }
   };
 
@@ -6077,7 +6952,7 @@ var Player = (function(window, document, hyperaudio, Popcorn) {
             // Setup to work with mp4 and webm property names. See options.
             hyperaudio.each(this.options.media, function(format, url) {
               // Only create known formats, so we can add other info to the media object.
-              if(self.options.mediaType[format]) {
+              if(self.options.mediaType[format] && url) {
                 var source = document.createElement('source');
                 source.setAttribute('type', self.options.mediaType[format]);
                 source.setAttribute('src', url); // Could use 'this' but less easy to read.
@@ -6112,6 +6987,18 @@ var Player = (function(window, document, hyperaudio, Popcorn) {
       while(el && el.firstChild) {
         el.removeChild(el.firstChild);
       }
+    },
+    gui_play: function(time) {
+      this._trigger(hyperaudio.event.userplay, {msg: 'User clicked play'});
+      this.play(time);
+    },
+    gui_pause: function(time) {
+      this._trigger(hyperaudio.event.userpause, {msg: 'User clicked pause'});
+      this.pause(time);
+    },
+    gui_currentTime: function(time, play) {
+      this._trigger(hyperaudio.event.usercurrenttime, {msg: 'User clicked the progress bar'});
+      this.currentTime(time, play);
     },
     play: function(time) {
       if(this.youtube) {
@@ -6325,8 +7212,11 @@ var PlayerGUI = (function (window, document, hyperaudio) {
 
     // Adjust sizes according to options
     this.progressBarElem.style.width = 100 - buttonCount*10 + '%';
-    this.currentTimeElem.style.width = 100 - buttonCount*10 + '%';
-    this.durationElem.style.width = 100 - buttonCount*10 + '%';
+
+    // No longer required since fixing fullscreen using: .hyperaudio-player-bar { position: relative; }
+    // Now these are set to 100% width in the CSS.
+    // this.currentTimeElem.style.width = 100 - buttonCount*10 + '%';
+    // this.durationElem.style.width = 100 - buttonCount*10 + '%';
 
     // Add the GUI
     hyperaudio.addClass(this.player.target, cssClass);
@@ -6350,12 +7240,12 @@ var PlayerGUI = (function (window, document, hyperaudio) {
       // if ( !this.player.videoElem.paused ) {
       if ( !this.status.paused ) {
         hyperaudio.removeClass(this.wrapperElem, 'playing');
-        this.player.pause();
+        this.player.gui_pause();
         return;
       }
 
       hyperaudio.addClass(this.wrapperElem, 'playing');
-      this.player.play();
+      this.player.gui_play();
     },
 
     timeUpdate: function () {
@@ -6439,7 +7329,7 @@ var PlayerGUI = (function (window, document, hyperaudio) {
 
       // var current = Math.round(this.status.duration / width * x);
       var current = Math.round(100 * this.status.duration * x / width) / 100;
-      this.player.currentTime(current);
+      this.player.gui_currentTime(current);
     }
   };
 
@@ -6701,6 +7591,7 @@ var Transcript = (function(document, hyperaudio) {
             } else {
               opts.player.currentTime(time);
             }
+            self._trigger(hyperaudio.event.userplayword, {msg: 'User clicked on a word to play from'});
           }
         }, false);
       }
@@ -6759,10 +7650,21 @@ var Transcript = (function(document, hyperaudio) {
               var html = this.getSelection().replace(/ class="[\d\w\s\-]*\s?"/gi, '') + '<div class="actions"></div>';
               dragdrop.init(html, e);
             }
+          },
+          onSelection: function(e) {
+            // Update the copy and paste.
+            if(hyperaudio.Clipboard) {
+              hyperaudio.Clipboard.copy(self.getSelection().text);
+            }
+          },
+          onClear: function(e) {
+            if(hyperaudio.Clipboard) {
+              hyperaudio.Clipboard.clear();
+            }
           }
         });
         this.ready = true;
-        this._trigger(hyperaudio.event.ready);
+        this._trigger(hyperaudio.event.ready, {msg: 'Transcript is ready.'});
       }
     },
 
@@ -6778,7 +7680,7 @@ var Transcript = (function(document, hyperaudio) {
         var opts = this.options,
           html = this.textSelect.getSelection(),
           el = document.createElement('div'),
-          words, start, end;
+          words, start, end, text;
 
         el.innerHTML = html;
         words = el.querySelectorAll(opts.word);
@@ -6788,9 +7690,14 @@ var Transcript = (function(document, hyperaudio) {
           end = words[words.length - 1].getAttribute(opts.timeAttr);
         }
 
+        text = el.textContent;
+        if(text.trim) {
+          text = text.trim();
+        }
+
         // The end time is the start of the last word, so needs padding.
         return {
-          text: el.textContent,
+          text: text,
           start: start,
           end: end
         };
@@ -6827,6 +7734,11 @@ var Stage = (function(document, hyperaudio) {
       target: '#stage', // The selector of element for the staging area.
 
       id: '', // The ID of the saved mix.
+      mix: {
+        //title, desc, type, editable
+        // url: [!content] The url of the mix
+        // content: [!url] The actual mix HTML
+      },
 
       title: 'Title not set',
       desc: 'Description not set',
@@ -6870,7 +7782,7 @@ var Stage = (function(document, hyperaudio) {
     // this.target.addEventListener('tap', function(event) {
     this.target.addEventListener('click', function(event) {
       var section, word, search;
-      event.preventDefault();
+      // event.preventDefault(); // Removed since it breaks checkbox clicks in effects.
       if(event.target.nodeName.toLowerCase() === self.options.word) {
         word = event.target;
         search = word;
@@ -6898,7 +7810,7 @@ var Stage = (function(document, hyperaudio) {
       this.options.projector.setStage(this);
     }
 
-    if(this.options.id) {
+    if(this.options.id || this.options.mix.url || this.options.mix.content) {
       this.load();
     }
   }
@@ -6908,52 +7820,96 @@ var Stage = (function(document, hyperaudio) {
       // [SHOULD] only really used to set the label, desc and type of the mix being saved.
       hyperaudio.extend(this.options, details);
     },
+    updateStage: function(content) {
+      // Need to maintain the existing article in the stage - Important for dragdrop.
+      var tmp = document.createElement('div'); // Temporary DOM element
+      tmp.innerHTML = content; // Add the content to the DOM element
+      var articleElem = tmp.querySelector('article'); // Find the article in the content.
+      // Can now insert the contents of the returned mix article into the maintained article.
+      this.article.innerHTML = articleElem.innerHTML;
+
+      // TODO: Should also clear any existing attributes on the article.
+
+      // Now copy over any attributes
+      var attr = articleElem.attributes;
+      for(var i=0, l=attr.length; i < l; i++ ) {
+        this.article.setAttribute(attr[i].name, attr[i].value);
+      }
+    },
     load: function(id) {
       var self = this;
 
-      if(id) {
-        this.options.id = id;
+      if(typeof id !== 'undefined') {
+        if(typeof id === 'string') {
+          this.options.id = id;
+          this.options.mix = {};
+        } else if(typeof id === 'object') {
+          this.options.id = '';
+          this.options.mix = id;
+        } else {
+          this.options.id = '';
+          this.options.mix = {};
+        }
       }
 
       if(this.target) {
 
-        // Fudge the user system since getUsername nay works.
-        // hyperaudio.api.guest = false;
-        // hyperaudio.api.username = 'tester';
+        if(this.options.id) {
 
-        hyperaudio.api.getMix(id, function(success) {
-          if(success) {
-            self.mix = hyperaudio.extend({}, this.mix);
-            self.mixDetails({
-              title: self.mix.label,
-              desc: self.mix.desc,
-              type: self.mix.type
-            });
+          hyperaudio.api.getMix(id, function(success) {
+            if(success) {
+              self.mix = hyperaudio.extend({}, this.mix);
+              self.mixDetails({
+                title: self.mix.label,
+                desc: self.mix.desc,
+                type: self.mix.type
+              });
+              self.updateStage(self.mix.content);
 
-            // Need to maintain the existing article in the stage - Important for dragdrop.
-            var tmp = document.createElement('div'); // Temporary DOM element
-            tmp.innerHTML = self.mix.content; // Add the content to the DOM element
-            var articleElem = tmp.querySelector('article'); // Find the article in the content.
-            // Can now insert the contents of the returned mix article into the maintained article.
-            self.article.innerHTML = articleElem.innerHTML;
-
-            // TODO: Should also clear any existing attributes on the article.
-
-            // Now copy over any attributes
-            var attr = articleElem.attributes;
-            for(var i=0, l=attr.length; i < l; i++ ) {
-              self.article.setAttribute(attr[i].name, attr[i].value);
+              // Setup the dragdrop on the loaded mix sections.
+              self.initDragDrop();
+              self._trigger(hyperaudio.event.load, {msg: 'Loaded mix'});
+            } else {
+              self._error(this.status + ' ' + this.statusText + ' : "' + id + '"');
             }
-
-            // Setup the dragdrop on the loaded mix sections.
-            self.initDragDrop();
-            self._trigger(hyperaudio.event.load, {msg: 'Loaded mix'});
+          });
+        } else {
+          this.mixDetails({
+            title: this.options.mix.title,
+            desc: this.options.mix.desc,
+            type: this.options.mix.type
+          });
+          if(this.options.mix.url) {
+            hyperaudio.xhr({
+              url: this.options.mix.url,
+              complete: function(event) {
+                self.updateStage(this.responseText);
+                if(self.options.mix.editable) {
+                  self.initDragDrop();
+                } else {
+                  self.changed();
+                }
+                self._trigger(hyperaudio.event.load, {msg: 'Loaded "' + self.options.mix.url + '"'});
+              },
+              error: function(event) {
+                self.target.innerHTML = 'Problem with mix URL.'; // TMP - This sort of things should not be in the lib code, but acting off an error event hander.
+                self._error(this.status + ' ' + this.statusText + ' : "' + self.options.mix.url + '"');
+              }
+            });
+          } else if(this.options.mix.content) {
+            this.updateStage(this.options.mix.content);
+            if(this.options.mix.editable) {
+              this.initDragDrop();
+            } else {
+              this.changed();
+            }
+            this._trigger(hyperaudio.event.load, {msg: 'Loaded given content'});
           } else {
-            self._error(this.status + ' ' + this.statusText + ' : "' + id + '"');
+            this.target.innerHTML = 'Problem with mix.'; // TMP - This sort of things should not be in the lib code, but acting off an error event hander.
+            this._error('Stage : No ID, URL or Content');
           }
-        });
+        }
       }
-      // Would then need to init the dragdrop ability on each item
     },
 
     save: function(callback) {
@@ -6970,14 +7926,11 @@ var Stage = (function(document, hyperaudio) {
 
       if(this.target) {
 
-        // Fudge the user system since getUsername nay works.
-        // hyperaudio.api.guest = false;
-        // hyperaudio.api.username = 'tester';
-
         hyperaudio.api.putMix(this.mix, function(success) {
           if(success) {
             if(success.saved) {
               self.mix = hyperaudio.extend({}, this.mix);
+              hyperaudio.Address.setParam('m', self.mix._id);
               self._trigger(hyperaudio.event.save, {msg: 'Saved mix'});
             } else if(success.needLogin) {
               // We need to login
@@ -7005,6 +7958,7 @@ var Stage = (function(document, hyperaudio) {
       this.mix = {};
       this.options.id = '';
       this.changed(true);
+      hyperaudio.Address.setParam('m');
     },
 
     parse: function() {
@@ -7016,12 +7970,41 @@ var Stage = (function(document, hyperaudio) {
 
     initDragDrop: function() {
       var self = this,
-        i, l, sections;
+        i, l, sections, effectType, bgmTitle, dragHtml;
+
+      var capitaliseFirstLetter = function(string) {
+        return string.charAt(0).toUpperCase() + string.slice(1);
+      };
+
       if(this.target) {
         sections = this.target.getElementsByTagName('section');
         l = sections.length;
         for(i=0; i < l; i++) {
-          self.dropped(sections[i]);
+
+          dragHtml = '';
+
+          // This code is to setup the drag-and-drop with a nice label. Otherwise the effects look bad after loading back in and dragged
+          effectType = sections[i].getAttribute('data-effect');
+          if(typeof effectType === 'string') {
+            switch(effectType) {
+              case 'fade':
+              case 'trim':
+              case 'title':
+                dragHtml = capitaliseFirstLetter(effectType);
+                break;
+              case 'bgm':
+                bgmTitleElem = sections[i].querySelector('.icon-music');
+                if(bgmTitleElem) {
+                  dragHtml = bgmTitleElem.parentNode.innerHTML;
+                } else {
+                  dragHtml = '<span class="icon-music">BGM</span>';
+                }
+                break;
+            }
+          }
+
+          // And we finally setup the DragDrop
+          self.dropped(sections[i], dragHtml);
         }
       }
     },
@@ -7045,8 +8028,10 @@ var Stage = (function(document, hyperaudio) {
         // add edit action if needed
         if ( !(/(^|\s)effect($|\s)/.test(el.className)) ) {
           actions = el.querySelector('.actions');
-          actions._tap = new Tap({el: actions});
-          actions.addEventListener('tap', editBlock, false);
+          if(actions) {
+            actions._tap = new Tap({el: actions});
+            actions.addEventListener('tap', editBlock, false);
+          }
         } else {
           draggableClass = 'draggableEffect';
         }
@@ -7075,6 +8060,7 @@ var Stage = (function(document, hyperaudio) {
       if(this.options.projector) {
         this.options.projector.requestUpdate(reset);
       }
+      this._trigger(hyperaudio.event.change, {msg: 'The mix has changed'});
     },
 
     enable: function() {
@@ -7112,6 +8098,8 @@ var Projector = (function(window, document, hyperaudio, Popcorn) {
       stageChangeDelay: 1000, // (ms) Delay for content update after the stage is changed
 
       timeAttr: 'data-m',
+
+      music: null, // For the BGM
 
       gui: true, // True to add a gui.
       async: true // When true, some operations are delayed by a timeout.
@@ -7215,6 +8203,7 @@ var Projector = (function(window, document, hyperaudio, Popcorn) {
       var fxHelper = document.createElement('div');
       fxHelper.id = 'fxHelper';
       fxHelper.className = 'video-transition-servo';
+      fxHelper.appendChild(document.createElement('div'));
 
       var titleFXHelper = document.createElement('div');
       titleFXHelper.id = 'titleFXHelper';
@@ -7340,6 +8329,10 @@ var Projector = (function(window, document, hyperaudio, Popcorn) {
         this._pause();
         this.contentIndex = jumpTo.contentIndex;
 
+        if(this.options.music) {
+          this.options.music.pause();
+        }
+
         if(this.contentIndex < this.content.length) {
 
           this.load(this.contentIndex);
@@ -7380,6 +8373,19 @@ var Projector = (function(window, document, hyperaudio, Popcorn) {
           }
         }
       }
+    },
+
+    gui_play: function(time) {
+      this._trigger(hyperaudio.event.userplay, {msg: 'User clicked play'});
+      this.play(time);
+    },
+    gui_pause: function(time) {
+      this._trigger(hyperaudio.event.userpause, {msg: 'User clicked pause'});
+      this.pause(time);
+    },
+    gui_currentTime: function(time, play) {
+      this._trigger(hyperaudio.event.usercurrenttime, {msg: 'User clicked the progress bar'});
+      this.currentTime(time, play);
     },
 
     play: function() {
@@ -7426,6 +8432,9 @@ var Projector = (function(window, document, hyperaudio, Popcorn) {
     pause: function() {
       // Really need pause to do similar to play by using cue()
       this._pause();
+      if(this.options.music) {
+        this.options.music.pause();
+      }
     },
     _play: function(time) {
       this.paused = false;
@@ -7464,6 +8473,7 @@ var Projector = (function(window, document, hyperaudio, Popcorn) {
           if(this.content[i].element === sectionElem) {
             jumpTo.contentIndex = i;
             jumpTo.start = wordElem.getAttribute(this.options.timeAttr) * this.content[i].unit;
+            this._trigger(hyperaudio.event.userplayword, {msg: 'User clicked on a word to play from'});
             this.play(jumpTo);
             break;
           }
@@ -7600,7 +8610,32 @@ var Projector = (function(window, document, hyperaudio, Popcorn) {
               // Effect for the next section, so store it for later.
               effect.push(fadeInEffect);
 
-            // The rest afect the next content
+            } else if(section.effect.type === 'title' && section.effect.fullscreen) {
+              // Similar to the Fade effect. The FadeFX does the fullscreen title effect
+
+              // Make 2 copies of the fade effect. Out and In.
+              var fadeOutEffectTitle = hyperaudio.extend({}, section.effect, {
+                type: "fadeOut",
+                duration: 1
+              });
+              var fadeInEffectTitle = hyperaudio.extend({}, section.effect, {
+                type: "fadeIn",
+                duration: 1,
+                delay: section.effect.duration
+              });
+
+              // Have we got a previous section to affect?
+              if(this.content.length) {
+                this.effectContent(this.content[this.content.length-1], fadeOutEffectTitle);
+              } else {
+                // Effect is on the first section, so store it for later.
+                fadeOutEffectTitle.type = "fadeNow";
+                effect.push(fadeOutEffectTitle);
+              }
+              // Effect for the next section, so store it for later.
+              effect.push(fadeInEffectTitle);
+
+            // The rest affect the next content
             } else {
               // Effect for the next section, so store it for later.
               effect.push(section.effect);
@@ -7660,23 +8695,53 @@ var Projector = (function(window, document, hyperaudio, Popcorn) {
         }
 
         // Get the effect details
-        var effectType = el.getAttribute('data-effect');
-        if(effectType) {
-          // This bit should be refactored, maybe with IDs or classes to indicate the input elements.
-          var effectText = el.querySelector('input[type="text"]');
-          var effectRange = el.querySelector('input[type="range"]');
-          section.effect = {
-            type: effectType,
-            text: effectText ? effectText.value : '',
-            duration: effectRange ? effectRange.value * 1 : 0 // Convert to number
-          };
-        } else {
-          section.effect = false;
-        }
+        section.effect = this.getSectionEffect(el);
 
         return section;
       } else {
         return false;
+      }
+    },
+
+    getSectionEffect: function(el) {
+      // Get the effect details
+      var type = el.getAttribute('data-effect'),
+        effect, media, elem;
+
+      if(type) {
+        elem = {
+          title: el.querySelector('#effect-title'),
+          fullscreen: el.querySelector('#effect-fullscreen'),
+          delay: el.querySelector('#effect-delay'),
+          start: el.querySelector('#effect-start'),
+          duration: el.querySelector('#effect-duration'),
+          volume: el.querySelector('#effect-volume')
+        };
+        media = {
+          mp3: el.getAttribute('data-mp3'),
+          mp4: el.getAttribute('data-mp4'),
+          ogg: el.getAttribute('data-ogg')
+        };
+        effect = {
+          type: type,
+          title: elem.title ? elem.title.value : '',
+          fullscreen: elem.fullscreen ? elem.fullscreen.checked : false,
+          delay: elem.delay ? elem.delay.value * 1 : 0, // Convert to number
+          start: elem.start ? elem.start.value * 1 : 0, // Convert to number
+          duration: elem.duration ? elem.duration.value * 1 : 0, // Convert to number
+          volume: elem.volume ? elem.volume.value / 100 : 0, // Convert to number and ratio from percent
+          media: media
+        };
+      } else {
+        effect = false;
+      }
+      return effect;
+    },
+
+    // Maybe this could be its own class?
+    bgmFX: function(options) {
+      if(this.options.music) {
+        this.options.music.bgmFX(options);
       }
     },
 
@@ -7730,6 +8795,12 @@ var Projector = (function(window, document, hyperaudio, Popcorn) {
           case 'fadeIn':
             content.effect.push(effect[i]);
             break;
+          case 'fadeNow':
+            content.effect.push(effect[i]);
+            break;
+          case 'bgm':
+            content.effect.push(effect[i]);
+            break;
           case 'trim':
             content.trim = effect[i].duration;
             break;
@@ -7738,12 +8809,26 @@ var Projector = (function(window, document, hyperaudio, Popcorn) {
 
     },
 
-    resetEffects: function() {
+    resetEffects: function(jumpTo) {
       var i, iLen, e, eLen, effect;
       for(i = 0, iLen = this.content.length; i < iLen; i++) {
         effect = this.content[i].effect;
         for(e=0, eLen=effect.length; e < eLen; e++) {
-          effect[e].init = false;
+
+          if(i < jumpTo.contentIndex) {
+            effect[e].init = true;
+          } else if(i > jumpTo.contentIndex) {
+            effect[e].init = false;
+          } else if(effect[e].type === 'fadeOut') { // Need an isEndEffect() method
+            effect[e].init = false;
+          } else {
+            // i === jumpTo.contentIndex
+            if(this.content[i].start + effect[e].delay < jumpTo.start) {
+              effect[e].init = true;
+            } else {
+              effect[e].init = false;
+            }
+          }
         }
       }
       // force a fadeIn - as in remove any fadeOuts!
@@ -7754,21 +8839,26 @@ var Projector = (function(window, document, hyperaudio, Popcorn) {
       });
     },
 
+    // Believe that the varous effect start and ends could be refactored into the single method.
+
     // Effecting the start of the content
-    effect: function(effect) {
+    effect: function(effect, time) {
+
+      // time : This is the relative time of the content.
+      time = typeof time === 'number' ? time : 0;
 
       if(effect && effect.length) {
 
         for(var i=0, l=effect.length; i < l; i++) {
 
-          if(!effect[i].init) {
+          if(!effect[i].init && effect[i].delay <= time) {
 
             switch(effect[i].type) {
               case 'title':
-                if(effect[i].text && effect[i].duration) {
+                if(effect[i].title && effect[i].duration) {
                   titleFX({
                     el: '#titleFXHelper',
-                    text: effect[i].text,
+                    text: effect[i].title,
                     duration: effect[i].duration * 1000
                   });
                   effect[i].init = true;
@@ -7779,7 +8869,33 @@ var Projector = (function(window, document, hyperaudio, Popcorn) {
                   fadeFX({
                     el: '#fxHelper',
                     fadeIn: true,
+                    text: effect[i].title,
                     time: effect[i].duration * 1000
+                  });
+                  effect[i].init = true;
+                }
+                break;
+              case 'fadeNow':
+                fadeFX({
+                  el: '#fxHelper',
+                  fadeOut: true,
+                  text: effect[i].title,
+                  time: 0
+                });
+                effect[i].init = true;
+                break;
+              case 'bgm':
+                if(effect[i].duration) {
+                  this.bgmFX({
+                    media: {
+                      mp3: effect[i].media.mp3,
+                      mp4: effect[i].media.mp4,
+                      ogg: effect[i].media.ogg
+                    },
+                    delay: effect[i].delay, // The delay is handled outside the bgmFX
+                    start: effect[i].start,
+                    duration: effect[i].duration,
+                    volume: effect[i].volume
                   });
                   effect[i].init = true;
                 }
@@ -7805,6 +8921,7 @@ var Projector = (function(window, document, hyperaudio, Popcorn) {
                   fadeFX({
                     el: '#fxHelper',
                     fadeOut: true,
+                    text: effect[i].title,
                     time: effect[i].duration * 1000
                   });
                   effect[i].init = true;
@@ -7890,8 +9007,21 @@ var Projector = (function(window, document, hyperaudio, Popcorn) {
 
         var totalCurrentTime = this.getTotalCurrentTime(videoElem.currentTime, this.contentIndex);
 
+        var relTime = videoElem.currentTime - this.content[this.contentIndex].start;
+/*
+        // Paronoid and cleaning up the relTime
+        var relEnd = endTime - this.content[this.contentIndex].start;
+        if(isNaN(relTime) || relTime < 0) {
+          relTime = 0;
+        } else if(relTime > relEnd) {
+          relTime = relEnd; // Maybe this should be infinity... Since delay greater than the content, and would otherwise never occur.
+        }
+*/
         if(videoElem.currentTime > endTime) {
           // Goto the next piece of content
+
+          // Flush out any remaining effects. ie., Otherwise delay > duration never happens.
+          this.effect(this.content[this.contentIndex].effect, Infinity);
 
           this._pause(); // Need to stop, otherwise if we switch player, the hidden one keeps playing.
 
@@ -7904,7 +9034,7 @@ var Projector = (function(window, document, hyperaudio, Popcorn) {
             if(this.content[this.contentIndex+1]) {
               this.prepare(this.contentIndex+1);
             }
-            this.effect(this.content[this.contentIndex].effect);
+            this.effect(this.content[this.contentIndex].effect, 0);
             this._play(this.content[this.contentIndex].start);
 
           } else {
@@ -7913,8 +9043,15 @@ var Projector = (function(window, document, hyperaudio, Popcorn) {
             this.isReadyToPlay = false; // ended so needs a reset to the start
             this.contentIndex = 0; // Reset this since YouTube player (or its Popcorn wrapper) generates the timeupdate all the time.
             this.prepare(this.contentIndex);
+            if(this.options.music) {
+              this.options.music.pause();
+            }
           }
+        } else {
+          // Doing this every time now.
+          this.effect(this.content[this.contentIndex].effect, relTime);
         }
+
         if(this.options.gui) {
           this.GUI.setStatus({
             paused: this.paused,
@@ -7943,7 +9080,9 @@ hyperaudio.register('Stage', Stage);
 hyperaudio.register('Projector', Projector);
 
 
+hyperaudio.utility('Address', Address); // obj
 hyperaudio.utility('api', api); // obj
+hyperaudio.utility('Clipboard', Clipboard); // obj
 hyperaudio.utility('DragDrop', DragDrop); // Class
 hyperaudio.utility('EditBlock', EditBlock); // Class
 hyperaudio.utility('fadeFX', fadeFX); // Class

@@ -14,7 +14,7 @@
 		<div id="source-video" class="transcript-video"></div>
 	</div>
 	<div class="ctrl-hldr" style="position: absolute;top:300px; width: 100%; padding:16px;">
-		<p style="padding-left:330px"><input style="font-size:16px;width:255px" id="selected-word" type="text" name="selected-word" ></p>
+		<p style="padding-left:330px"><input style="font-size:16px;width:255px" id="selected-word" type="text" name="selected-word" > <input style="font-size:16px;width:60px;margin-left:10px" id="selected-word-time" type="text" name="selected-word-time" > ms</p>
 		<p>-5s<input id="tweak-time" type="range" value="0" min="-5000" max="5000" step="100" style="width:860px; margin-left:10px">+5s</p>
 	</div>
 	<div class="transcript-pane">
@@ -22,11 +22,15 @@
 	</div>
 </div>
 
+<script src="http://code.jquery.com/jquery-2.0.3.js"></script>
 <script type="text/javascript" src="js/hyperaudio.js"></script>
+<script type="text/javascript" src="lib/purl.js"></script>
 
 <script type="text/javascript">
 
-	var ht = {
+$( document ).ready(function() {
+  	
+  	var ht = {
 
 		selectWordTime: 0,
 
@@ -44,16 +48,17 @@
 				target: "#source-transcript",
 				//async: false,
 				media: {
-					transcript: "transcripts/ts-people-dont-sleep.html",
-					youtube: "http://www.youtube.com/watch?v=ZHatkfnBQBs"
+					transcript: "transcripts/ts-tracy-murphy.html",
+					youtube: "https://www.youtube.com/watch?v=2OziioHOCgQ"
 				},
 				player: player
 			});
 
-
 			var transcriptEl = document.getElementById("source-transcript");
 			
 			transcriptEl.addEventListener(HA.event.ready, setListeners, false);
+
+			//console.dir(transcript);
 		}
 	}
 
@@ -63,25 +68,47 @@
 
 		var words = document.getElementsByTagName("a");
 		var selectedWord = document.getElementById("selected-word");
+		var selectedWordTime = document.getElementById("selected-word-time");
 		var tweakTime = document.getElementById("tweak-time");
 		var timeChange;
+
+		tweakTime.value = 0;
+		selectedWord.value = "";
+		selectedWordTime.value = "";
 
 		for (var i = 0; i < words.length; i++) {   
 			words[i].onclick = function() {
 				//console.dir(this.getAttribute("data-m"));
 				ht.selectWordTime = this.getAttribute("data-m");
 				selectedWord.value = this.innerHTML;//.replace(" ","");
-			};
+				selectedWordTime.value = ht.selectWordTime;
+			}
 		}
 
 		selectedWord.oninput = function() {
 			var theWord = document.querySelectorAll("a[data-m='"+ht.selectWordTime+"']");
 			theWord[0].innerHTML = selectedWord.value;
-		};
+		}
+
+		selectedWordTime.oninput = function() {
+			var theWord = document.querySelectorAll("a[data-m='"+ht.selectWordTime+"']");
+			//console.log(ht.selectWordTime);
+			theWord[0].setAttribute("data-m",(selectedWordTime.value));
+			ht.selectWordTime = selectedWordTime.value;
+			//console.log(selectedWordTime.value);
+		}
+
+		selectedWordTime.onkeyup = function(e) {
+    		if (e.keyCode == 13) {
+        		player.play(parseInt(ht.selectWordTime)/1000);
+        		console.log(ht.selectWordTime);
+        	}
+    	}
 
 		tweakTime.oninput = function() {
 			timeChange = parseInt(this.value);
 			player.play((parseInt(ht.selectWordTime)+timeChange)/1000);
+			selectedWordTime.value = parseInt(ht.selectWordTime)+timeChange;
 		}
 
 		tweakTime.onkeyup = setWordTime;
@@ -89,16 +116,15 @@
 
 		function setWordTime() {
 			var theWord = document.querySelectorAll("a[data-m='"+ht.selectWordTime+"']");
-			theWord[0].setAttribute("data-m",(parseInt(ht.selectWordTime)+timeChange));
+			ht.selectWordTime = parseInt(ht.selectWordTime)+timeChange;
+			theWord[0].setAttribute("data-m",ht.selectWordTime);
 			tweakTime.value = 0;
 		}
 	}
 
-	window.onload = function(){
-		ht.init();
-	}
+	ht.init();
+});
+
 </script>
-
-
 </body>
 </html>
