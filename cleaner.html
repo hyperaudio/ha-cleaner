@@ -30,8 +30,12 @@
   }
 
   #source-transcript {
-    padding-top: 80px;
     top: 480px;
+    width: 984px;
+  }
+
+  #source-video {
+    left: 276px;
   }
 
 
@@ -47,7 +51,7 @@
   <div class="video-hldr">
     <div id="source-video" class="transcript-video"></div>
   </div>
-  <div class="ctrl-hldr" style="position: absolute;top:360px; width: 100%; padding:16px;">
+  <div class="ctrl-hldr" style="position: absolute;top:360px; width: 100%; padding:16px; padding-left: 48px">
     <p style="padding-left:330px"><input style="font-size:16px;width:255px" id="selected-word" type="text" name="selected-word" > <input style="font-size:16px;width:60px;margin-left:10px" id="selected-word-time" type="text" name="selected-word-time" > ms</p>
     <p>-5s<input id="tweak-time" type="range" value="0" min="-5000" max="5000" step="100" style="width:860px; margin-left:10px">+5s</p>
   </div>
