@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>HyperTranscript demo</title>
+  <link rel="stylesheet" type="text/css" href="css/hyperaudio.transcript.css" />
+  <link rel="stylesheet" type="text/css" href="css/hyperaudio.player.css" />
+  <link rel="stylesheet" type="text/css" href="css/style.css" />
+  <link href='http://fonts.googleapis.com/css?family=Varela+Round' rel='stylesheet' type='text/css'>
+  <style>
+  #content {
+    font-size: 1.3em;
+    padding: 10px; outline: 2px dashed #CCC; 
+    width: 100%;
+    height: 200px;    
+  }
+
+  #content:hover { outline: 2px dashed #0090D2; }
+
+  #source-video {
+    margin-top: 60px;
+  }
+
+  .controls {
+    padding:20px;
+  }
+
+  #wrapper {
+    overflow-y: auto;
+  }
+
+  #source-transcript {
+    padding-top: 80px;
+    top: 480px;
+  }
+
+
+    </style>
+</head>
+<body>
+
+<div id="wrapper">
+  <header id="header">
+    <h1>Hyperaudio Cleaner</h1>
+    <div id="save-button">6</div>
+  </header>
+  <div class="video-hldr">
+    <div id="source-video" class="transcript-video"></div>
+  </div>
+  <div class="ctrl-hldr" style="position: absolute;top:360px; width: 100%; padding:16px;">
+    <p style="padding-left:330px"><input style="font-size:16px;width:255px" id="selected-word" type="text" name="selected-word" > <input style="font-size:16px;width:60px;margin-left:10px" id="selected-word-time" type="text" name="selected-word-time" > ms</p>
+    <p>-5s<input id="tweak-time" type="range" value="0" min="-5000" max="5000" step="100" style="width:860px; margin-left:10px">+5s</p>
+  </div>
+  <div class="transcript-pane">
+    <div id="source-transcript" class="transcript"></div>
+  </div>
+</div>
+
+<script src="http://code.jquery.com/jquery-2.0.3.js"></script>
+<script type="text/javascript" src="js/hyperaudio-lib.js"></script>
+<script type="text/javascript" src="lib/purl.js"></script>
+
+<script type="text/javascript">
+
+$( document ).ready(function() {
+
+  // Init the API utility
+  HA.api.init();
+
+  var API = 'http://api.hyperaud.io/v1';
+
+  var mediaObject;
+  var mediaID = purl(window.top.document.location.href).param('m');
+  var transcriptID = purl(window.top.document.location.href).param('t');
+  var transcriptObject;
+
+ 
+  var user;
+
+  function whoami(callback) {
+    $.ajax(API+'/whoami', {
+      type: "GET",
+      contentType: "application/json; charset=utf-8",
+      success: function(whoami) {
+        if (whoami.user) {
+            // logged in
+            //alert('logged in');
+            user = whoami.user;
+
+            var event = new CustomEvent("ga", {"detail":{"origin":"HA-Converter","type":"XHR","action":"User logged in (whoami)"}});
+            document.dispatchEvent(event);
+
+        } else {
+            // not logged in
+            //alert('NOT logged in');
+            user = null;
+
+            var event = new CustomEvent("ga", {"detail":{"origin":"HA-Converter","type":"XHR","action":"User NOT logged in (whoami)"}});
+            document.dispatchEvent(event);
+        }
+        if (callback) callback();
+      },
+      xhrFields: {
+        withCredentials: true
+      },
+      crossDomain: true 
+    });
+  }
+
+  /*----------------*/
+    
+
+  var selectWordTime = 0;
+
+  var player = HA.Player({
+    target: "#source-video",
+    gui: {
+      navigation: false,
+      fullscreen: false
+    }
+  });
+
+  
+  var transcriptEl = document.getElementById("source-transcript");
+  
+  transcriptEl.addEventListener(HA.event.ready, setListeners, false);
+
+  if (transcriptID) {
+    transcript = HA.Transcript({
+        target: "#source-transcript",
+        id: transcriptID,
+        player: player
+    });
+  }
+
+  function setListeners() {
+
+    var words = document.getElementsByTagName("a");
+    var selectedWord = document.getElementById("selected-word");
+    var selectedWordTime = document.getElementById("selected-word-time");
+    var tweakTime = document.getElementById("tweak-time");
+    var timeChange;
+
+    tweakTime.value = 0;
+    selectedWord.value = "";
+    selectedWordTime.value = "";
+
+    for (var i = 0; i < words.length; i++) {   
+      words[i].onclick = function() {
+        //console.dir(this.getAttribute("data-m"));
+        selectWordTime = this.getAttribute("data-m");
+        selectedWord.value = this.innerHTML;//.replace(" ","");
+        selectedWordTime.value = selectWordTime;
+      }
+    }
+
+    selectedWord.oninput = function() {
+      var theWord = document.querySelectorAll("a[data-m='"+selectWordTime+"']");
+      theWord[0].innerHTML = selectedWord.value;
+    }
+
+    selectedWordTime.oninput = function() {
+      var theWord = document.querySelectorAll("a[data-m='"+selectWordTime+"']");
+      //console.log(ht.selectWordTime);
+      theWord[0].setAttribute("data-m",(selectedWordTime.value));
+      selectWordTime = selectedWordTime.value;
+      //console.log(selectedWordTime.value);
+    }
+
+    selectedWordTime.onkeyup = function(e) {
+      if (e.keyCode == 13) {
+        player.play(parseInt(selectWordTime)/1000);
+        console.log(selectWordTime);
+      }
+    }
+
+    tweakTime.oninput = function() {
+      timeChange = parseInt(this.value);
+      player.play((parseInt(selectWordTime)+timeChange)/1000);
+      selectedWordTime.value = parseInt(selectWordTime)+timeChange;
+    }
+
+    tweakTime.onkeyup = setWordTime;
+    tweakTime.onmouseup = setWordTime;
+
+    function setWordTime() {
+      var theWord = document.querySelectorAll("a[data-m='"+ht.selectWordTime+"']");
+      selectWordTime = parseInt(selectWordTime)+timeChange;
+      theWord[0].setAttribute("data-m",selectWordTime);
+      tweakTime.value = 0;
+    }
+    
+  }
+
+
+  function updateTranscript(user) {
+    $.ajax( 'http://api.hyperaud.io/v1/' + user + '/transcripts/' + transcriptObject._id, {
+      type: "PUT",
+      contentType: "application/json; charset=utf-8",
+      dataType: "json",
+      data: JSON.stringify({
+        _id: transcriptObject._id,
+        label:  'Transcript for ' + mediaObject.label,
+        type: 'html',
+        sort: 0,
+        owner: user,
+        content: $('#content').val(),
+        media: mediaId
+      }),
+      success: function(data) {
+        transcriptObject = data;
+        console.log(data);
+        console.log('Saved!');
+      },
+      error: function() {
+        alert('Save Error');
+      },
+      xhrFields: {
+        withCredentials: true
+      },
+      crossDomain: true
+    });
+  }
+
+  function save() {
+    whoami(function() {
+      if (user) {
+        //
+        if (transcriptObject) {
+          updateTranscript(user);
+        } else {
+          saveTranscript(user);
+        }
+        //
+      } else {
+        alert('not logged in');
+      }
+    });
+  }
+  
+  $('#save-button').click(function() {
+    save();
+  });  
+});
+
+</script>
+</body>
+</html>
