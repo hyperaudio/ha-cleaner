@@ -210,6 +210,8 @@ $( document ).ready(function() {
 
     var $copy = $("#source-transcript").clone();
     $copy.find("a").removeClass("transcript-grey");
+    console.log("label : "+HA.api.transcript.label);
+    console.log("mediaId : "+HA.api.transcript.media);
 
 
     $.ajax( 'http://api.hyperaud.io/v1/' + user + '/transcripts/' + transcriptID, {
@@ -218,12 +220,12 @@ $( document ).ready(function() {
       dataType: "json",
       data: JSON.stringify({
         _id: transcriptID,
-        //label:  'Transcript for ' + mediaObject.label,
+        label: HA.api.transcript.label,
         type: 'html',
         sort: 0,
         owner: user,
         content: $copy.html(),
-        //media: mediaId
+        media: HA.api.transcript.media 
       }),
       success: function(data) {
         transcriptObject = data;
