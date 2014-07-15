@@ -217,7 +217,7 @@ $( document ).ready(function() {
         type: 'html',
         sort: 0,
         owner: user,
-        content: $('#content').val(),
+        content: $("#source-transcript").clone().removeClass("transcript-grey").html() ,
         //media: mediaId
       }),
       success: function(data) {
