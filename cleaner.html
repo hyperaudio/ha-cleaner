@@ -143,6 +143,7 @@ $( document ).ready(function() {
         id: transcriptID,
         player: player
     });
+    console.dir(transcriptObject);
   }
 
   function setListeners() {
@@ -212,12 +213,12 @@ $( document ).ready(function() {
       dataType: "json",
       data: JSON.stringify({
         _id: transcriptID,
-        label:  'Transcript for ' + mediaObject.label,
+        //label:  'Transcript for ' + mediaObject.label,
         type: 'html',
         sort: 0,
         owner: user,
         content: $('#content').val(),
-        media: mediaId
+        //media: mediaId
       }),
       success: function(data) {
         transcriptObject = data;
