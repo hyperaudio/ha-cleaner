@@ -138,7 +138,7 @@ $( document ).ready(function() {
   transcriptEl.addEventListener(HA.event.ready, setListeners, false);
 
   if (transcriptID) {
-    transcript = HA.Transcript({
+    transcriptObject = HA.Transcript({
         target: "#source-transcript",
         id: transcriptID,
         player: player
@@ -206,12 +206,12 @@ $( document ).ready(function() {
 
 
   function updateTranscript(user) {
-    $.ajax( 'http://api.hyperaud.io/v1/' + user + '/transcripts/' + transcriptObject._id, {
+    $.ajax( 'http://api.hyperaud.io/v1/' + user + '/transcripts/' + transcriptID, {
       type: "PUT",
       contentType: "application/json; charset=utf-8",
       dataType: "json",
       data: JSON.stringify({
-        _id: transcriptObject._id,
+        _id: transcriptID,
         label:  'Transcript for ' + mediaObject.label,
         type: 'html',
         sort: 0,
@@ -241,7 +241,7 @@ $( document ).ready(function() {
         if (transcriptObject) {
           updateTranscript(user);
         } else {
-          saveTranscript(user);
+          alert('error no transcriptObject')
         }
         //
       } else {
