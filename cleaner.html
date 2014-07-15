@@ -207,6 +207,10 @@ $( document ).ready(function() {
 
 
   function updateTranscript(user) {
+
+    var clonedTranscript =  $("#source-transcript").clone();
+
+
     $.ajax( 'http://api.hyperaud.io/v1/' + user + '/transcripts/' + transcriptID, {
       type: "PUT",
       contentType: "application/json; charset=utf-8",
@@ -217,7 +221,7 @@ $( document ).ready(function() {
         type: 'html',
         sort: 0,
         owner: user,
-        content: $("#source-transcript").clone().removeClass("transcript-grey").html() ,
+        content: clonedTranscript.find("a").removeClass("transcript-grey").html() ,
         //media: mediaId
       }),
       success: function(data) {
