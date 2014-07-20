@@ -89,6 +89,14 @@ $( document ).ready(function() {
  
   var user;
 
+  function randomId() {
+    var chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_';
+    var length = 22;
+    var result = '';
+    for (var i = length; i > 0; --i) result += chars[Math.round(Math.random() * (chars.length - 1))];
+    return result;
+  }
+
   function whoami(callback) {
     $.ajax(API+'/whoami', {
       type: "GET",
@@ -210,8 +218,15 @@ $( document ).ready(function() {
 
     var $copy = $("#source-transcript").clone();
     $copy.find("a").removeClass("transcript-grey");
-    
 
+    console.log("user:"+user);
+    console.log("owner:"+HA.api.transcript.owner);
+    console.dir(HA.api.transcript);
+
+    if (user != HA.api.transcript.owner) {
+      console.log("make a new one");
+      transcriptID = randomId();
+    }
 
     $.ajax( 'http://api.hyperaud.io/v1/' + user + '/transcripts/' + transcriptID, {
       type: "PUT",
