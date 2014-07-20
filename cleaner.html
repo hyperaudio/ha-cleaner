@@ -52,7 +52,7 @@
     <div id="source-video" class="transcript-video"></div>
   </div>
   <div class="ctrl-hldr" style="position: absolute;top:360px; width: 100%; padding:16px; padding-left: 48px">
-    <p style="padding-left:330px"><input style="font-size:16px;width:255px" id="selected-word" type="text" name="selected-word" > <input style="font-size:16px;width:60px;margin-left:10px" id="selected-word-time" type="text" name="selected-word-time" > ms</p>
+    <p style="padding-left:330px"><input style="font-size:16px;width:255px" id="selected-word" type="text" name="selected-word" > <input style="font-size:16px;width:60px;margin-left:10px" id="selected-word-time" type="text" name="selected-word-time" > ms <button id="format-para" disabled="disabled" style="margin-left:200px">&para;</button></p>
     <p>-5s<input id="tweak-time" type="range" value="0" min="-5000" max="5000" step="100" style="width:860px; margin-left:10px">+5s</p>
   </div>
   <div class="transcript-pane">
@@ -85,17 +85,30 @@ $( document ).ready(function() {
   var mediaID = purl(window.top.document.location.href).param('m');
   var transcriptID = purl(window.top.document.location.href).param('t');
   var transcriptObject;
-
- 
   var user;
 
-  function randomId() {
-    var chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_';
-    var length = 22;
-    var result = '';
-    for (var i = length; i > 0; --i) result += chars[Math.round(Math.random() * (chars.length - 1))];
-    return result;
+  var transcriptEl = document.getElementById("source-transcript");
+
+  transcriptEl.addEventListener("mouseup", getSelection, false);
+  transcriptEl.addEventListener("touchend", getSelection, false);
+
+  function getSelection() {
+    $('#format-para').removeAttr('disabled');
   }
+
+  $("#format-para").click(function() {
+    console.log("--- getting selection ---");
+    var selection = transcriptObject.getSelection();
+
+    console.dir($("a[data-m='"+selection.start+"']"));
+
+    $("</p><p>").insertBefore($("a[data-m='"+selection.start+"']"));
+    $("</p><p>").insertAfter($("a[data-m='"+selection.end+"']"));
+    console.log(selection.text);
+    console.log(selection.start);
+    console.log(selection.end);
+  });
+
 
   function whoami(callback) {
     $.ajax(API+'/whoami', {
@@ -224,39 +237,66 @@ $( document ).ready(function() {
     console.dir(HA.api.transcript);
 
     if (user != HA.api.transcript.owner) {
-      console.log("make a new one");
-      transcriptID = randomId();
+      $.ajax( 'http://api.hyperaud.io/v1/' + user + '/transcripts/', {
+        type: "POST",
+        contentType: "application/json; charset=utf-8",
+        dataType: "json",
+        data: JSON.stringify({
+          label: HA.api.transcript.label,
+          type: 'html',
+          sort: 0,
+          owner: user,
+          content: $copy.html(),
+          media: HA.api.transcript.media._id 
+        }),
+        success: function(data) {
+          transcriptObject = data;
+          console.log(data);
+          console.log('Saved!');
+          //console.log("label : "+HA.api.transcript.label);
+          //console.log("mediaId : "+HA.api.transcript.media);
+          //console.dir(HA.api);
+        },
+        error: function() {
+          alert('Save Error');
+        },
+        xhrFields: {
+          withCredentials: true
+        },
+        crossDomain: true
+      });
+    } else {
+      $.ajax( 'http://api.hyperaud.io/v1/' + user + '/transcripts/' + transcriptID, {
+        type: "PUT",
+        contentType: "application/json; charset=utf-8",
+        dataType: "json",
+        data: JSON.stringify({
+          _id: transcriptID,
+          label: HA.api.transcript.label,
+          type: 'html',
+          sort: 0,
+          owner: user,
+          content: $copy.html(),
+          media: HA.api.transcript.media._id 
+        }),
+        success: function(data) {
+          transcriptObject = data;
+          console.log(data);
+          console.log('Saved!');
+          //console.log("label : "+HA.api.transcript.label);
+          //console.log("mediaId : "+HA.api.transcript.media);
+          //console.dir(HA.api);
+        },
+        error: function() {
+          alert('Save Error');
+        },
+        xhrFields: {
+          withCredentials: true
+        },
+        crossDomain: true
+      });
     }
 
-    $.ajax( 'http://api.hyperaud.io/v1/' + user + '/transcripts/' + transcriptID, {
-      type: "PUT",
-      contentType: "application/json; charset=utf-8",
-      dataType: "json",
-      data: JSON.stringify({
-        _id: transcriptID,
-        label: HA.api.transcript.label,
-        type: 'html',
-        sort: 0,
-        owner: user,
-        content: $copy.html(),
-        media: HA.api.transcript.media._id 
-      }),
-      success: function(data) {
-        transcriptObject = data;
-        console.log(data);
-        console.log('Saved!');
-        //console.log("label : "+HA.api.transcript.label);
-        //console.log("mediaId : "+HA.api.transcript.media);
-        //console.dir(HA.api);
-      },
-      error: function() {
-        alert('Save Error');
-      },
-      xhrFields: {
-        withCredentials: true
-      },
-      crossDomain: true
-    });
   }
 
   function save() {
