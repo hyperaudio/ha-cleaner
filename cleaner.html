@@ -224,14 +224,15 @@ $( document ).ready(function() {
         sort: 0,
         owner: user,
         content: $copy.html(),
-        media: HA.api.transcript.media 
+        media: HA.api.transcript.media._id 
       }),
       success: function(data) {
         transcriptObject = data;
         console.log(data);
         console.log('Saved!');
-        console.log("label : "+HA.api.transcript.label);
-        console.log("mediaId : "+HA.api.transcript.media);
+        //console.log("label : "+HA.api.transcript.label);
+        //console.log("mediaId : "+HA.api.transcript.media);
+        //console.dir(HA.api);
       },
       error: function() {
         alert('Save Error');
