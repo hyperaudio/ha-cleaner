@@ -218,7 +218,7 @@ $( document ).ready(function() {
     tweakTime.onmouseup = setWordTime;
 
     function setWordTime() {
-      var theWord = document.querySelectorAll("a[data-m='"+ht.selectWordTime+"']");
+      var theWord = document.querySelectorAll("a[data-m='"+selectWordTime+"']");
       selectWordTime = parseInt(selectWordTime)+timeChange;
       theWord[0].setAttribute("data-m",selectWordTime);
       tweakTime.value = 0;
