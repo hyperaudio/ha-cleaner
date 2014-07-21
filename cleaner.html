@@ -237,7 +237,7 @@ $( document ).ready(function() {
     console.dir(HA.api.transcript);
 
     if (user != HA.api.transcript.owner) {
-      $.ajax( 'http://api.hyperaud.io/v1/' + user + '/transcripts/', {
+      $.ajax( API + '/' + user + '/transcripts/', {
         type: "POST",
         contentType: "application/json; charset=utf-8",
         dataType: "json",
@@ -266,7 +266,7 @@ $( document ).ready(function() {
         crossDomain: true
       });
     } else {
-      $.ajax( 'http://api.hyperaud.io/v1/' + user + '/transcripts/' + transcriptID, {
+      $.ajax( API + '/' + user + '/transcripts/' + transcriptID, {
         type: "PUT",
         contentType: "application/json; charset=utf-8",
         dataType: "json",
