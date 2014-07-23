@@ -221,7 +221,9 @@ $( document ).ready(function() {
       var theWord = document.querySelectorAll("a[data-m='"+selectWordTime+"']");
       selectWordTime = parseInt(selectWordTime)+timeChange;
       theWord[0].setAttribute("data-m",selectWordTime);
+      console.log("centering");
       tweakTime.value = 0;
+      return false;
     }
     
   }
