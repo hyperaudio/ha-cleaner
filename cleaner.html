@@ -102,6 +102,11 @@ $( document ).ready(function() {
 
     console.dir($("a[data-m='"+selection.start+"']"));
 
+    var $start = $("a[data-m='"+selection.start+"']");
+
+    console.log("previously");
+    console.dir($start.prev());
+
     $("</p><p>").insertBefore($("a[data-m='"+selection.start+"']"));
     $("</p><p>").insertAfter($("a[data-m='"+selection.end+"']"));
     console.log(selection.text);
