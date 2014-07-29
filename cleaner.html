@@ -105,6 +105,8 @@ $( document ).ready(function() {
     var $start = $("a[data-m='"+selection.start+"']");
     var $end = $("a[data-m='"+selection.end+"']");
 
+    $start.nextUntil($end.next()).andSelf().wrapAll("<p/>");
+
     //console.log("prev length :"+$start.prev().length);
     /*if ($start.prev().length == 0) {
       console.log("already at start of para");
@@ -122,8 +124,8 @@ $( document ).ready(function() {
       $("</p><p>").insertAfter($end);
     }*/
 
-    $("<br>").insertBefore($start);
-    $("<br>").insertAfter($end);
+    /*$("<br>").insertBefore($start);
+    $("<br>").insertAfter($end);*/
 
 
     console.log(selection.text);
