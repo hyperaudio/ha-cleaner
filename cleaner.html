@@ -106,8 +106,12 @@ $( document ).ready(function() {
 
     console.log("previously");
     console.dir($start.prev());
+    console.log($start.prev());
+    console.log("prev length :"$start.prev().length);
     if ($start.prev() == true) {
-      console.log("previous exists")
+      console.log("previous exists");
+    } else {
+      console.log("previous no exists");
     }
 
     $("</p><p>").insertBefore($("a[data-m='"+selection.start+"']"));
