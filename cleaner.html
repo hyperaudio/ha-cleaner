@@ -100,27 +100,31 @@ $( document ).ready(function() {
     console.log("--- getting selection ---");
     var selection = transcriptObject.getSelection();
 
-    console.dir($("a[data-m='"+selection.start+"']"));
+    //console.dir($("a[data-m='"+selection.start+"']"));
 
     var $start = $("a[data-m='"+selection.start+"']");
     var $end = $("a[data-m='"+selection.end+"']");
 
-    console.log("prev length :"+$start.prev().length);
-    if ($start.prev().length == 0) {
+    //console.log("prev length :"+$start.prev().length);
+    /*if ($start.prev().length == 0) {
       console.log("already at start of para");
     }
 
     if ($end.next().length == 0) {
       console.log("already at end of para");
-    }
+    }*/
 
-    if($start.prev().length > 0) {
+    /*if($start.prev().length > 0) {
       $("</p><p>").insertBefore($start);
     }
 
     if($end.next().length > 0) {
       $("</p><p>").insertAfter($end);
-    }
+    }*/
+
+    $("<br>").insertBefore($start);
+    $("<br>").insertAfter($end);
+
 
     console.log(selection.text);
     console.log(selection.start);
