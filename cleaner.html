@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>HyperTranscript demo</title>
+  <title>Hyperaudio Cleaner</title>
   <link rel="stylesheet" type="text/css" href="css/hyperaudio.transcript.css" />
   <link rel="stylesheet" type="text/css" href="css/hyperaudio.player.css" />
   <link rel="stylesheet" type="text/css" href="css/style.css" />
@@ -47,6 +47,7 @@
   <header id="header">
     <h1>Hyperaudio Cleaner</h1>
     <div id="save-button">6</div>
+    <div id="save-button-saving"></div>
   </header>
   <div class="video-hldr">
     <div id="source-video" class="transcript-video"></div>
@@ -263,6 +264,8 @@ $( document ).ready(function() {
     console.log("owner:"+HA.api.transcript.owner);
     console.dir(HA.api.transcript);
 
+    savingAnim.style.display = 'block';
+
     if (user != HA.api.transcript.owner) {
       $.ajax( API + '/' + user + '/transcripts/', {
         type: "POST",
@@ -280,12 +283,14 @@ $( document ).ready(function() {
           transcriptObject = data;
           console.log(data);
           console.log('Saved!');
+          savingAnim.style.display = 'none';
           //console.log("label : "+HA.api.transcript.label);
           //console.log("mediaId : "+HA.api.transcript.media);
           //console.dir(HA.api);
         },
         error: function() {
           alert('Save Error');
+          savingAnim.style.display = 'none';
         },
         xhrFields: {
           withCredentials: true
