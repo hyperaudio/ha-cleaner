@@ -212,6 +212,7 @@ $( document ).ready(function() {
         selectWordTime = this.getAttribute("data-m");
         selectedWord.value = this.innerHTML;//.replace(" ","");
         selectedWordTime.value = selectWordTime;
+        tweakTime.value = 0;
       }
     }
 
@@ -225,7 +226,8 @@ $( document ).ready(function() {
       //console.log(ht.selectWordTime);
       theWord[0].setAttribute("data-m",(selectedWordTime.value));
       selectWordTime = selectedWordTime.value;
-      //console.log(selectedWordTime.value);
+
+      console.log("swt on "+selectedWordTime.value);
     }
 
     selectedWordTime.onkeyup = function(e) {
@@ -235,34 +237,41 @@ $( document ).ready(function() {
       }
     }
 
-    tweakTime.oninput = function() {
+    $('#tweak-time').on('input', function() {
       timeChange = parseInt(this.value);
       player.play((parseInt(selectWordTime)+timeChange)/1000);
-      selectedWordTime.value = parseInt(selectWordTime)+timeChange;
-    }
+      //selectedWordTime.value = parseInt(selectWordTime)+timeChange;
+      console.log("timeChange on "+timeChange);
+      console.log("selectWordTime on "+selectWordTime);
+      //return false;
+    });
 
     //tweakTime.onkeyup = setWordTime;
     //tweakTime.onmouseup = setWordTime;
 
     $('#tweak-time').mouseup(function(e){
       setWordTime();
-      e.preventDefault();
-      return false;
+      /*e.preventDefault();*/
+      /*return false;*/
     });
 
     $('#tweak-time').keyup(function(e){
       setWordTime();
-      e.preventDefault();
-      return false;
+      /*e.preventDefault();*/
+      /*return false;*/
     });
 
     function setWordTime() {
       var theWord = document.querySelectorAll("a[data-m='"+selectWordTime+"']");
       selectWordTime = parseInt(selectWordTime)+timeChange;
       theWord[0].setAttribute("data-m",selectWordTime);
-      console.log("centering");
-      tweakTime.value = 0;
+      selectedWordTime.value = selectWordTime;
+      console.log("timeChange up "+timeChange);
+      console.log("selectWordTime up "+selectWordTime);
+      timeChange = 0;
     }
+
+    setInterval(function(){console.log("moo");$('#selectedWordTime').val(selectWordTime)},500);
     
   }
 
