@@ -103,19 +103,25 @@ $( document ).ready(function() {
     console.dir($("a[data-m='"+selection.start+"']"));
 
     var $start = $("a[data-m='"+selection.start+"']");
+    var $end = $("a[data-m='"+selection.end+"']");
 
-    console.log("previously");
-    console.dir($start.prev());
-    console.log($start.prev());
     console.log("prev length :"+$start.prev().length);
-    if ($start.prev() == true) {
-      console.log("previous exists");
-    } else {
-      console.log("previous no exists");
+    if ($start.prev().length == 0) {
+      console.log("already at start of para");
     }
 
-    $("</p><p>").insertBefore($("a[data-m='"+selection.start+"']"));
-    $("</p><p>").insertAfter($("a[data-m='"+selection.end+"']"));
+    if ($end.next().length == 0) {
+      console.log("already at end of para");
+    }
+
+    if($start.prev().length > 0) {
+      $("</p><p>").insertBefore($start);
+    }
+
+    if($end.next().length > 0) {
+      $("</p><p>").insertAfter($end);
+    }
+
     console.log(selection.text);
     console.log(selection.start);
     console.log(selection.end);
