@@ -233,6 +233,7 @@ $( document ).ready(function() {
 
     var $copy = $("#source-transcript").clone();
     $copy.find("a").removeClass("transcript-grey");
+    $copy.find("a").removeClass("selected");
 
     console.log("user:"+user);
     console.log("owner:"+HA.api.transcript.owner);
