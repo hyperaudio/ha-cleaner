@@ -241,8 +241,20 @@ $( document ).ready(function() {
       selectedWordTime.value = parseInt(selectWordTime)+timeChange;
     }
 
-    tweakTime.onkeyup = setWordTime;
-    tweakTime.onmouseup = setWordTime;
+    //tweakTime.onkeyup = setWordTime;
+    //tweakTime.onmouseup = setWordTime;
+
+    $('#tweak-time').mouseup(function(e){
+      setWordTime();
+      e.preventDefault();
+      return false;
+    });
+
+    $('#tweak-time').keyup(function(e){
+      setWordTime();
+      e.preventDefault();
+      return false;
+    });
 
     function setWordTime() {
       var theWord = document.querySelectorAll("a[data-m='"+selectWordTime+"']");
@@ -250,7 +262,6 @@ $( document ).ready(function() {
       theWord[0].setAttribute("data-m",selectWordTime);
       console.log("centering");
       tweakTime.value = 0;
-      return false;
     }
     
   }
