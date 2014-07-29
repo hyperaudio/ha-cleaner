@@ -317,12 +317,14 @@ $( document ).ready(function() {
           transcriptObject = data;
           console.log(data);
           console.log('Saved!');
+          savingAnim.style.display = 'none';
           //console.log("label : "+HA.api.transcript.label);
           //console.log("mediaId : "+HA.api.transcript.media);
           //console.dir(HA.api);
         },
         error: function() {
           alert('Save Error');
+          savingAnim.style.display = 'none';
         },
         xhrFields: {
           withCredentials: true
