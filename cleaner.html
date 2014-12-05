@@ -69,9 +69,6 @@
 
 $( document ).ready(function() {
 
-  // Init the API utility
-  HA.api.init();
-  
   var namespace = null;
   if (document.location.hostname.indexOf('hyperaud') > 0) {
     namespace = document.location.hostname.substring(0, document.location.hostname.indexOf('hyperaud') - 1);
@@ -86,6 +83,12 @@ $( document ).ready(function() {
   } else {
     domain = 'hyperaudio.net';
   }
+
+  // Init the API utility
+  HA.api.init({
+    org: namespace, // The organisations namespace / sub-domain. EG. 'chattanooga'
+    domain: domain
+  });
 
   var API = 'http://' + prefix + 'api.' + domain + '/v1';
 
