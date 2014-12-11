@@ -7,6 +7,7 @@
   <link rel="stylesheet" type="text/css" href="css/hyperaudio.player.css" />
   <link rel="stylesheet" type="text/css" href="css/style.css" />
   <link href='http://fonts.googleapis.com/css?family=Varela+Round' rel='stylesheet' type='text/css'>
+  <link rel="stylesheet" type="text/css" href="lib/shepherd/css/shepherd-theme-hyperaudio.css" />
   <style>
   #content {
     font-size: 1.3em;
@@ -37,9 +38,9 @@
   #source-video {
     left: 276px;
   }
+</style>
 
-
-    </style>
+<link rel="stylesheet" type="text/css" href="lib/shepherd/css/shepherd-theme-hyperaudio.css" />
 </head>
 <body>
 
@@ -157,7 +158,7 @@ $( document ).ready(function() {
             //alert('logged in');
             user = whoami.user;
 
-            var event = new CustomEvent("ga", {"detail":{"origin":"HA-Converter","type":"XHR","action":"User logged in (whoami)"}});
+            var event = new CustomEvent("ga", {"detail":{"origin":"HA-Cleaner","type":"XHR","action":"User logged in (whoami)"}});
             document.dispatchEvent(event);
 
         } else {
@@ -165,7 +166,7 @@ $( document ).ready(function() {
             //alert('NOT logged in');
             user = null;
 
-            var event = new CustomEvent("ga", {"detail":{"origin":"HA-Converter","type":"XHR","action":"User NOT logged in (whoami)"}});
+            var event = new CustomEvent("ga", {"detail":{"origin":"HA-Cleaner","type":"XHR","action":"User NOT logged in (whoami)"}});
             document.dispatchEvent(event);
         }
         if (callback) callback();
@@ -387,5 +388,9 @@ $( document ).ready(function() {
 });
 
 </script>
+<!-- remove the following line if analytics are not required -->
+<script type="text/javascript" src="/commons/tools/analytics/ga.js"></script>
+<script type="text/javascript" src="lib/shepherd/shepherd.min.js"></script>
+<script type="text/javascript" src="js/shepherd-tour.js"></script>
 </body>
 </html>
