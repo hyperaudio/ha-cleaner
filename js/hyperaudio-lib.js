@@ -1,4 +1,4 @@
-/*! hyperaudio-lib v0.6.5 ~ (c) 2012-2015 Hyperaudio Inc. <hello@hyperaud.io> (http://hyperaud.io) http://hyperaud.io/licensing/ ~ Built: 3rd July 2015 18:38:25 */
+/*! hyperaudio-lib v0.7.0 ~ (c) 2012-2017 Hyperaudio Inc. <hello@hyperaud.io> (http://hyperaud.io) http://hyperaud.io/licensing/ ~ Built: 12th November 2017 17:48:29 */
 (function(global, document) {
 
   // Popcorn.js does not support archaic browsers
@@ -7906,6 +7906,10 @@ var xhr = (function(hyperaudio) {
 			xhr.setRequestHeader('content-type', 'application/json; charset=utf-8');
 		}
 
+		if (window.localStorage.getItem('token')) {
+      xhr.setRequestHeader('Authorization', 'Bearer ' + window.localStorage.getItem('token'));
+    }
+
 		xhr.send(options.data);
 
 		return xhr;
@@ -7933,11 +7937,12 @@ var api = (function(hyperaudio) {
 
 				// Command syntax
 				transcripts: 'transcripts/',
-				transcripts_filter: '?type=html',
+				transcripts_filter: '&type=html',
 				mixes: 'mixes/',
 				channels: 'channels/',
 				signin: 'login/',
 				whoami: 'whoami/',
+				media: 'media/',
 				// Specific user (bgm) for music
 				bgm: 'bgm/media/'
 			}, options);
@@ -8065,10 +8070,13 @@ var api = (function(hyperaudio) {
 
 			getUrl = function() {
 				var url = self.url;
+				// if(options.user) {
+				// 	url += self.username + '/';
+				// }
+				url += self.options.media + self.options.channels;
 				if(options.user) {
-					url += self.username + '/';
+					url += '?user=' + self.username;
 				}
-				url += self.options.transcripts + self.options.channels;
 				return url;
 			};
 
@@ -8114,14 +8122,18 @@ var api = (function(hyperaudio) {
 
 			getUrl = function() {
 				var url = self.url;
-				if(options.user) {
-					url += self.username + '/';
-				}
-				url += self.options.transcripts;
+				// if(options.user) {
+				// 	url += self.username + '/';
+				// }
+				url += self.options.transcripts + '?';
 				if(options.channel) {
-					url += self.options.channels + options.channel;
+					// url += self.options.channels + options.channel;
+					url += 'channel=' + options.channel;
 				}
 				url += self.options.transcripts_filter;
+				if(options.user) {
+					url += '&user=' + self.username;
+				}
 				return url;
 			};
 
@@ -8209,7 +8221,8 @@ var api = (function(hyperaudio) {
 				this.getUsername(function(success) {
 					if(success) {
 						xhr({
-							url: self.url + (self.guest ? '' : self.username + '/') + self.options.mixes,
+							// url: self.url + (self.guest ? '' : self.username + '/') + self.options.mixes,
+							url: self.url + self.options.mixes + (self.guest ? '' : '?user=' + self.username),
 							complete: function(event) {
 								var json = JSON.parse(this.responseText);
 								self.mixes = json;
@@ -8238,7 +8251,7 @@ var api = (function(hyperaudio) {
 				this.getUsername(function(success) {
 					if(success && id) {
 						xhr({
-							url: this.url + (this.guest ? '' : this.username + '/') + this.options.mixes + id,
+							url: this.url + this.options.mixes + id,
 							complete: function(event) {
 								var json = JSON.parse(this.responseText);
 								self.mix = json;
@@ -8280,9 +8293,9 @@ var api = (function(hyperaudio) {
 						} else {
 							// Check some stuff?
 						}
-						
+
 						xhr({
-							url: self.url + self.username + '/' + self.options.mixes + id,
+							url: self.url + self.options.mixes + id,
 							type: type,
 							data: JSON.stringify(mix),
 							complete: function(event) {
