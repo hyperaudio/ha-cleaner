@@ -6,14 +6,14 @@
   <link rel="stylesheet" type="text/css" href="css/hyperaudio.transcript.css" />
   <link rel="stylesheet" type="text/css" href="css/hyperaudio.player.css" />
   <link rel="stylesheet" type="text/css" href="css/style.css" />
-  <link href='http://fonts.googleapis.com/css?family=Varela+Round' rel='stylesheet' type='text/css'>
+  <link href='https://fonts.googleapis.com/css?family=Varela+Round' rel='stylesheet' type='text/css'>
 
   <style>
   #content {
     font-size: 1.3em;
-    padding: 10px; outline: 2px dashed #CCC; 
+    padding: 10px; outline: 2px dashed #CCC;
     width: 100%;
-    height: 200px;    
+    height: 200px;
   }
 
   #content:hover { outline: 2px dashed #0090D2; }
@@ -45,7 +45,7 @@
 </style>
 
 <!--<link rel="stylesheet" type="text/css" href="lib/shepherd/css/shepherd-theme-hyperaudio.css" />-->
-  <link rel="stylesheet" type="text/css" href="http://hyperaud.io/assets/tours/shepherd/css/shepherd-theme-hyperaudio.css" />
+  <!-- <link rel="stylesheet" type="text/css" href="http://hyperaud.io/assets/tours/shepherd/css/shepherd-theme-hyperaudio.css" /> -->
 </head>
 <body>
 
@@ -67,7 +67,7 @@
   </div>
 </div>
 
-<script src="http://code.jquery.com/jquery-2.0.3.js"></script>
+<script src="https://code.jquery.com/jquery-2.0.3.js"></script>
 <script type="text/javascript" src="js/hyperaudio-lib.js"></script>
 <script type="text/javascript" src="lib/purl.js"></script>
 
@@ -179,12 +179,12 @@ $( document ).ready(function() {
       xhrFields: {
         withCredentials: true
       },
-      crossDomain: true 
+      crossDomain: true
     });
   }
 
   /*----------------*/
-    
+
 
   var selectWordTime = 0;
 
@@ -196,9 +196,9 @@ $( document ).ready(function() {
     }
   });
 
-  
+
   var transcriptEl = document.getElementById("source-transcript");
-  
+
   transcriptEl.addEventListener(HA.event.ready, setListeners, false);
 
   if (transcriptID) {
@@ -222,7 +222,7 @@ $( document ).ready(function() {
     selectedWord.value = "";
     selectedWordTime.value = "";
 
-    for (var i = 0; i < words.length; i++) {   
+    for (var i = 0; i < words.length; i++) {
       words[i].onclick = function() {
         //console.dir(this.getAttribute("data-m"));
         selectWordTime = this.getAttribute("data-m");
@@ -288,7 +288,7 @@ $( document ).ready(function() {
     }
 
     //setInterval(function(){console.log("tc="+timeChange);$('#selected-word-time').val(parseInt(selectWordTime)+parseInt(timeChange))},500);
-    
+
   }
 
 
@@ -315,7 +315,7 @@ $( document ).ready(function() {
           sort: 0,
           owner: user,
           content: $copy.html(),
-          media: HA.api.transcript.media._id 
+          media: HA.api.transcript.media._id
         }),
         success: function(data) {
           transcriptObject = data;
@@ -347,7 +347,7 @@ $( document ).ready(function() {
           sort: 0,
           owner: user,
           content: $copy.html(),
-          media: HA.api.transcript.media._id 
+          media: HA.api.transcript.media._id
         }),
         success: function(data) {
           transcriptObject = data;
@@ -386,17 +386,17 @@ $( document ).ready(function() {
       }
     });
   }
-  
+
   $('#save-button').click(function() {
     save();
-  });  
+  });
 });
 
 </script>
 <!-- remove the following line if analytics are not required -->
 <script type="text/javascript" src="/commons/tools/analytics/ga.js"></script>
 <!--<script type="text/javascript" src="lib/shepherd/shepherd.min.js"></script>-->
-<script type="text/javascript" src="http://hyperaud.io/assets/tours/shepherd/shepherd.min.js"></script>
-<script type="text/javascript" src="js/shepherd-tour.js"></script>
+<!-- <script type="text/javascript" src="http://hyperaud.io/assets/tours/shepherd/shepherd.min.js"></script> -->
+<!-- <script type="text/javascript" src="js/shepherd-tour.js"></script> -->
 </body>
 </html>
