@@ -96,7 +96,15 @@ $( document ).ready(function() {
     domain: domain
   });
 
-  var API = 'http://' + prefix + 'api.' + domain + '/v1';
+  var API = 'https://' + prefix + 'api.' + domain + '/v1';
+
+  $.ajaxPrefilter( function( options, originalOptions, jqXHR ) {
+    if (options.url.indexOf(API) == 0) {
+      if (window.localStorage.getItem('token')) {
+        jqXHR.setRequestHeader('Authorization', 'Bearer ' + window.localStorage.getItem('token'));
+      }
+    }
+  });
 
   var mediaObject;
   var mediaID = purl(window.top.document.location.href).param('m');
@@ -154,7 +162,7 @@ $( document ).ready(function() {
 
 
   function whoami(callback) {
-    $.ajax(API+'/whoami', {
+    $.ajax(API+'/auth/whoami/' + window.localStorage.getItem('token'), {
       type: "GET",
       contentType: "application/json; charset=utf-8",
       success: function(whoami) {
@@ -305,7 +313,7 @@ $( document ).ready(function() {
     savingAnim.style.display = 'block';
 
     if (user != HA.api.transcript.owner) {
-      $.ajax( API + '/' + user + '/transcripts/', {
+      $.ajax( API + '/transcripts/', {
         type: "POST",
         contentType: "application/json; charset=utf-8",
         dataType: "json",
@@ -336,7 +344,7 @@ $( document ).ready(function() {
         crossDomain: true
       });
     } else {
-      $.ajax( API + '/' + user + '/transcripts/' + transcriptID, {
+      $.ajax( API + '/transcripts/' + transcriptID, {
         type: "PUT",
         contentType: "application/json; charset=utf-8",
         dataType: "json",
